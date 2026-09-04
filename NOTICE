@@ -38,6 +38,13 @@ XRechnung validator configuration — KoSIT
   Apache License 2.0
   https://github.com/itplr-kosit/validator-configuration-xrechnung
 
+XRechnung visualisation — KoSIT
+  Apache License 2.0
+  https://github.com/itplr-kosit/xrechnung-visualization
+  The rendered HTML embeds the stylesheet's own CSS and script, which includes
+  FileSaver.js (c) Eli Grey, MIT License, as bundled by KoSIT. Pages produced by
+  Verifacta therefore carry that third-party code.
+
 UBL 2.1 schemas — OASIS
 CII D16B schemas — UN/CEFACT
   redistributed by KoSIT under the Apache License 2.0

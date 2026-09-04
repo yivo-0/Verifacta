@@ -42,6 +42,7 @@ BR-CO-15 BT-112 BT-109 at /ubl-invoice:Invoice/cac:LegalMonetaryTotal/cbc:TaxInc
 |---|---|
 | **Detect** | UBL 2.1 Invoice and CreditNote, CII D16B, and the XML inside a hybrid Factur-X / ZUGFeRD 2.x PDF. Identifies the profile: XRechnung, Peppol BIS Billing 3, Factur-X (with level), plain EN 16931. |
 | **Read** | One canonical `EInvoice` model regardless of syntax — parties, addresses, contacts, delivery, payment means, allowances and charges, VAT breakdown, all ten total fields, and lines with prices, item identifiers and attributes. Tolerant: a malformed date or amount becomes a finding, never an exception. |
+| **Render** | A received invoice as a self-contained HTML page, using KoSIT's official XRechnung visualisation — so what you show a user matches the reference rendering rather than an interpretation of it. German or English labels. |
 | **Validate** | XML Schema, then the EN 16931 business rules, then the national CIUS — the same artefacts in the same order as the German reference validator. Stops at the schema when the structure is wrong, because rules over a broken document give misleading verdicts. |
 
 Findings carry the rule id, severity, the raw SVRL flag, a readable location path, the failing XPath
@@ -73,6 +74,7 @@ versions and regenerating the manifest; consumers never need it.
 | `cen-en16931` | 1.3.16 | ConnectingEurope/eInvoicing-EN16931 | EUPL-1.2 |
 | `peppol-bis` | 3.0.21 | itplr-kosit/validator-configuration-bis | Apache-2.0 |
 | `xrechnung` | 3.0.2 | itplr-kosit/validator-configuration-xrechnung | Apache-2.0 |
+| `visualization` | 3.0.2 | itplr-kosit/xrechnung-visualization | Apache-2.0 |
 
 `src/Verifacta/RulePacks.json` records the release tag, licence and SHA-256 of every artefact.
 `RulePackCatalog.VerifyIntegrity()` checks them before use.
@@ -92,6 +94,7 @@ before a new pack version ships.
 
 ```bash
 verifacta validate invoice.xml
+verifacta render invoice.pdf -o invoice.html
 verifacta info invoice.pdf
 ```
 
@@ -114,7 +117,11 @@ The CSV carries one row per invoice — status, rule set, schema result, error a
 and the rule ids — so a large archive can be triaged in a spreadsheet. Validation runs in parallel
 across cores; 521 files take about 12 seconds including the one-off rule-pack compilation.
 
-Options: `--rules en16931|peppol|xrechnung`, `--recursive`, `--csv <file>`, `--json`, `--no-schema`.
+`render` writes a self-contained page — CSS and script inlined, no network access needed — either
+to stdout for a single invoice or beside each file for a folder. `--lang en` switches the labels.
+
+Options: `--rules en16931|peppol|xrechnung`, `--recursive`, `--csv <file>`, `--json`, `--no-schema`,
+`-o|--out <file|folder>`, `--lang de|en`.
 Exit codes: `0` valid, `1` validation errors, `2` a file could not be processed, `64` usage error.
 
 ## Verified against
@@ -149,6 +156,8 @@ build says so.
 
 Writing or generating invoices, Peppol network transport, and ZUGFeRD 1.x (legally superseded —
 Germany requires 2.0.1 or later; v1 files are detected and rejected with a clear message).
+Rendering to PDF is out of scope too: the publisher's PDF path emits XSL-FO, which needs an FO
+processor, and the structured XML is the legally archived original in any case.
 
 ## Licence
 

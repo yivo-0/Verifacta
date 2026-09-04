@@ -95,6 +95,32 @@ PACKS = [
         },
     },
     {
+        # The official XRechnung visualisation: source -> intermediate "xr" XML -> HTML. The
+        # xr-pdf stylesheets are not fetched; they emit XSL-FO, which needs an FO processor.
+        "id": "visualization",
+        "version": "3.0.2",
+        "repo": "itplr-kosit/xrechnung-visualization",
+        "tag": "v2026-08-31",
+        "licence": "Apache-2.0",
+        "assets": {
+            "xrechnung-3.0.2-visualization-2026-08-31.zip": {
+                "xsl/ubl-invoice-xr.xsl": "xsl/ubl-invoice-xr.xsl",
+                "xsl/ubl-creditnote-xr.xsl": "xsl/ubl-creditnote-xr.xsl",
+                "xsl/cii-xr.xsl": "xsl/cii-xr.xsl",
+                "xsl/common-xr.xsl": "xsl/common-xr.xsl",
+                "xsl/functions.xsl": "xsl/functions.xsl",
+                "xsl/xr-content.xsl": "xsl/xr-content.xsl",
+                "xsl/xrechnung-html.xsl": "xsl/xrechnung-html.xsl",
+                # Inlined into the rendered page by xrechnung-html.xsl, and its label catalogues.
+                "xsl/xrechnung-viewer.css": "xsl/xrechnung-viewer.css",
+                "xsl/xrechnung-viewer.js": "xsl/xrechnung-viewer.js",
+                "xsl/FileSaver-v2.0.5.js": "xsl/FileSaver-v2.0.5.js",
+                "xsl/l10n/de.xml": "xsl/l10n/de.xml",
+                "xsl/l10n/en.xml": "xsl/l10n/en.xml",
+            },
+        },
+    },
+    {
         "id": "xrechnung",
         "version": "3.0.2",
         "repo": "itplr-kosit/validator-configuration-xrechnung",

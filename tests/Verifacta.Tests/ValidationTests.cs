@@ -14,7 +14,7 @@ public class ValidationTests(ValidatorFixture fixture)
         fixture.Catalog!.VerifyIntegrity();
 
         Assert.Equal(
-            ["cen-en16931", "peppol-bis", "schemas", "xrechnung"],
+            ["cen-en16931", "peppol-bis", "schemas", "visualization", "xrechnung"],
             fixture.Catalog.Packs.Select(pack => pack.Id).Order());
     }
 

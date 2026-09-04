@@ -148,6 +148,75 @@
       }
     },
     {
+      "id": "visualization",
+      "version": "3.0.2",
+      "repo": "itplr-kosit/xrechnung-visualization",
+      "tag": "v2026-08-31",
+      "licence": "Apache-2.0",
+      "files": {
+        "xsl/ubl-invoice-xr.xsl": {
+          "bytes": 112956,
+          "sha256": "ef2c2af5efbc5e130a4fe4b67c62080ff179a67df08522dbf9cfcf305093c899",
+          "origin": "xrechnung-3.0.2-visualization-2026-08-31.zip!xsl/ubl-invoice-xr.xsl"
+        },
+        "xsl/ubl-creditnote-xr.xsl": {
+          "bytes": 120384,
+          "sha256": "8cf629bd45887447d605b442201bad5f14dff118133b358adb4468c5fd31cf89",
+          "origin": "xrechnung-3.0.2-visualization-2026-08-31.zip!xsl/ubl-creditnote-xr.xsl"
+        },
+        "xsl/cii-xr.xsl": {
+          "bytes": 138370,
+          "sha256": "216c591ef7bd887e2f89d5623bd20fbf73a9b48ae51f93fdbb0e46d1645f63e3",
+          "origin": "xrechnung-3.0.2-visualization-2026-08-31.zip!xsl/cii-xr.xsl"
+        },
+        "xsl/common-xr.xsl": {
+          "bytes": 5660,
+          "sha256": "3155e48fe19dd23ff74e3f191721e28c7a51a5e76a093fb1e2ee60bfe08edc41",
+          "origin": "xrechnung-3.0.2-visualization-2026-08-31.zip!xsl/common-xr.xsl"
+        },
+        "xsl/functions.xsl": {
+          "bytes": 6187,
+          "sha256": "1e8e2c414a19d63007408856649037c8654f5c7391618c48010865dac60db3ed",
+          "origin": "xrechnung-3.0.2-visualization-2026-08-31.zip!xsl/functions.xsl"
+        },
+        "xsl/xr-content.xsl": {
+          "bytes": 56153,
+          "sha256": "fc6f82c2ffc31913721b474e66c8a00bbdd822655a8a71108b0d65a696f6c077",
+          "origin": "xrechnung-3.0.2-visualization-2026-08-31.zip!xsl/xr-content.xsl"
+        },
+        "xsl/xrechnung-html.xsl": {
+          "bytes": 103354,
+          "sha256": "7a8bdd9f2653bfa1042d86a963af2071a9168cfbf0aef5be27975abedef20ccc",
+          "origin": "xrechnung-3.0.2-visualization-2026-08-31.zip!xsl/xrechnung-html.xsl"
+        },
+        "xsl/xrechnung-viewer.css": {
+          "bytes": 11070,
+          "sha256": "f480e173816b701522eb15eccd782ca10e439d9a34838a8688f45b6eed1ebed5",
+          "origin": "xrechnung-3.0.2-visualization-2026-08-31.zip!xsl/xrechnung-viewer.css"
+        },
+        "xsl/xrechnung-viewer.js": {
+          "bytes": 5875,
+          "sha256": "fb31206bb89009f358891d6123573d425f6c310527b0c7f64ee041e9993c8d92",
+          "origin": "xrechnung-3.0.2-visualization-2026-08-31.zip!xsl/xrechnung-viewer.js"
+        },
+        "xsl/FileSaver-v2.0.5.js": {
+          "bytes": 6153,
+          "sha256": "6060c139808ad689ae6f055ea65eb8eaa90314fcceda72af727a369a7e69f263",
+          "origin": "xrechnung-3.0.2-visualization-2026-08-31.zip!xsl/FileSaver-v2.0.5.js"
+        },
+        "xsl/l10n/de.xml": {
+          "bytes": 19664,
+          "sha256": "6f29bb1b02ace03e0753315e455d7516f871123967e2668c54954e242c4c2d67",
+          "origin": "xrechnung-3.0.2-visualization-2026-08-31.zip!xsl/l10n/de.xml"
+        },
+        "xsl/l10n/en.xml": {
+          "bytes": 19322,
+          "sha256": "7966d747319d92f918f58420e309303f3b178ca4b68faad479e88b45ce7252d2",
+          "origin": "xrechnung-3.0.2-visualization-2026-08-31.zip!xsl/l10n/en.xml"
+        }
+      }
+    },
+    {
       "id": "xrechnung",
       "version": "3.0.2",
       "repo": "itplr-kosit/validator-configuration-xrechnung",

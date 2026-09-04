@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Verifacta;
+using Verifacta.Rendering;
 using Verifacta.Validation;
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -16,7 +17,7 @@ var values = new Dictionary<string, string>(StringComparer.Ordinal);
 
 // Options that take a value are consumed with their argument, otherwise "--rules xrechnung" would
 // treat "xrechnung" as a file to validate.
-string[] valueOptions = ["--rules", "--csv"];
+string[] valueOptions = ["--rules", "--csv", "--out", "-o", "--lang"];
 
 for (var index = 1; index < args.Length; index++)
 {
@@ -46,6 +47,7 @@ try
     {
         "rules" => await Rules(paths.FirstOrDefault(), flags.Contains("--force")),
         "validate" => Validate(),
+        "render" => Render(),
         "info" => Info(),
         _ => Unknown(command),
     };
@@ -143,6 +145,66 @@ int Validate()
     if (reports.Any(report => report.Status == "error")) return ExitCode.Failed;
 
     return reports.Any(report => report.Status == "invalid") ? ExitCode.Invalid : ExitCode.Valid;
+}
+
+int Render()
+{
+    var files = Batch.Expand(paths, flags.Contains("--recursive") || flags.Contains("-r"));
+
+    if (files.Count == 0)
+    {
+        Error(paths.Count == 0 ? "No file or folder given." : "No .xml or .pdf files found.");
+        return ExitCode.Usage;
+    }
+
+    var language = values.TryGetValue("--lang", out var lang) ? lang : "de";
+    var destination = values.TryGetValue("--out", out var output) ? output
+        : values.TryGetValue("-o", out var shortOutput) ? shortOutput
+        : null;
+
+    var renderer = new InvoiceRenderer();
+    if (files.Count > 1) renderer.Warmup();
+
+    // One file with no destination goes to stdout so it can be piped; anything else is written
+    // beside its invoice, or into the folder given by --out.
+    if (files.Count == 1 && destination is null)
+    {
+        try
+        {
+            Console.Out.Write(renderer.ToHtml(InvoiceDocument.Load(files[0]), language));
+            return ExitCode.Valid;
+        }
+        catch (Exception exception) when (exception is UnsupportedDocumentException or RenderingException)
+        {
+            Error($"{files[0]}: {exception.Message}");
+            return ExitCode.Failed;
+        }
+    }
+
+    var failed = false;
+
+    foreach (var file in files)
+    {
+        var target = files.Count == 1 && destination is not null && !Directory.Exists(destination)
+            ? destination
+            : Path.Combine(destination ?? Path.GetDirectoryName(file) ?? ".",
+                Path.GetFileNameWithoutExtension(file) + ".html");
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(target))!);
+            using var writer = new StreamWriter(target);
+            renderer.ToHtml(InvoiceDocument.Load(file), writer, language);
+            Console.WriteLine($"  {target}");
+        }
+        catch (Exception exception) when (exception is UnsupportedDocumentException or RenderingException)
+        {
+            Error($"  {file}: {exception.Message}");
+            failed = true;
+        }
+    }
+
+    return failed ? ExitCode.Failed : ExitCode.Valid;
 }
 
 int Info()
@@ -271,6 +333,7 @@ static void Usage()
           verifacta rules restore [--force]
           verifacta rules verify
           verifacta validate <file|folder...> [options]
+          verifacta render <file|folder...> [-o <file|folder>] [--lang de|en]
           verifacta info <file|folder...> [--json]
 
         Options:
@@ -279,6 +342,11 @@ static void Usage()
           --csv <file>    write one row per invoice, with a summary on the console
           --json          machine-readable output
           --no-schema     check business rules only, skipping XML Schema
+          -o, --out       where to write rendered HTML; stdout for a single invoice
+          --lang          label language for render: de (default) or en
+
+        render produces a self-contained HTML page using the official XRechnung
+        visualisation, so what you show a user matches the reference rendering.
 
         Run "rules restore" once: it downloads the validation artefacts from their
         publishers and checks them against the SHA-256 recorded in the manifest.
