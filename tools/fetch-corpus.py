@@ -18,15 +18,23 @@ SOURCES = [
     ("kosit-xrechnung", "itplr-kosit/xrechnung-testsuite", ("src/test/business-cases/",), "v2026-08-31"),
     ("cen-en16931", "ConnectingEurope/eInvoicing-EN16931", ("cii/examples/", "ubl/examples/"), "validation-1.3.16"),
     ("cen-rule-tests", "ConnectingEurope/eInvoicing-EN16931", ("test/",), "validation-1.3.16"),
-    ("peppol-bis", "OpenPEPPOL/peppol-bis-invoice-3", ("rules/examples/", "rules/national-examples/"), None),
-    ("facturx", "akretion/factur-x", ("tests/fixtures/xml/",), None),
-    ("mustang", "ZUGFeRD/mustangproject", ("library/src/test/resources/",), None),
+    # Every source is pinned. These three publish no suitable tag, so they are pinned to a commit:
+    # tracking a branch would make the corpus -- and therefore the test count -- drift with upstream.
+    ("peppol-bis", "OpenPEPPOL/peppol-bis-invoice-3", ("rules/examples/", "rules/national-examples/"),
+     "261c458474e27d58a25be629cccac28883171c92"),
+    ("facturx", "akretion/factur-x", ("tests/fixtures/xml/",),
+     "9397c8573f362fe1a97912876afde06aaa92746f"),
+    ("mustang", "ZUGFeRD/mustangproject", ("library/src/test/resources/",),
+     "bb60510b13647f9fa8f9db6956b7b42d639fae90"),
     # Hybrid PDF/A-3 invoices, plus the edge cases the incumbent library hit: an encrypted PDF,
     # one with no attachment, a corrupt one, and a PDF/A-4 variant.
     ("pdf-mustang", "ZUGFeRD/mustangproject",
-     ("library/src/test/resources/", "Mustang-CLI/src/test/resources/"), None, (".pdf",)),
-    ("pdf-facturx", "akretion/factur-x", ("tests/fixtures/pdf/",), None, (".pdf",)),
-    ("pdf-edge-cases", "stephanstapel/ZUGFeRD-csharp", ("ZUGFeRD.PDF.Test/",), None, (".pdf",)),
+     ("library/src/test/resources/", "Mustang-CLI/src/test/resources/"),
+     "bb60510b13647f9fa8f9db6956b7b42d639fae90", (".pdf",)),
+    ("pdf-facturx", "akretion/factur-x", ("tests/fixtures/pdf/",),
+     "9397c8573f362fe1a97912876afde06aaa92746f", (".pdf",)),
+    ("pdf-edge-cases", "stephanstapel/ZUGFeRD-csharp", ("ZUGFeRD.PDF.Test/",),
+     "18.0.0", (".pdf",)),
 ]
 
 EXCLUDE = ("order-x", "order_x", "orderx", "/schema/", "/xsd/")
@@ -36,8 +44,10 @@ def tree(repo, ref):
     resolved = ref or subprocess.run(
         ["gh", "api", f"repos/{repo}", "--jq", ".default_branch"],
         capture_output=True, text=True, check=True).stdout.strip()
+    # Only blobs: a directory named e.g. "ZUGFeRD.PDF" would otherwise match an extension filter.
     paths = subprocess.run(
-        ["gh", "api", f"repos/{repo}/git/trees/{resolved}?recursive=1", "--jq", ".tree[].path"],
+        ["gh", "api", f"repos/{repo}/git/trees/{resolved}?recursive=1",
+         "--jq", '.tree[] | select(.type == "blob") | .path'],
         capture_output=True, text=True, check=True).stdout.splitlines()
     return resolved, paths
 

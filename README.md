@@ -1,5 +1,7 @@
 # Verifacta
 
+[![ci](https://github.com/yivo-0/Verifacta/actions/workflows/ci.yml/badge.svg)](https://github.com/yivo-0/Verifacta/actions/workflows/ci.yml)
+
 Read and validate EN 16931 electronic invoices in .NET — **no Java, no Node.js, no native
 dependencies, and nothing leaves your server.**
 
@@ -78,15 +80,20 @@ Exit codes: `0` valid, `1` validation errors, `2` the file could not be processe
 
 ## Verified against
 
-883 tests, run in about 15 seconds.
+Every corpus source is pinned to a release tag or commit, so the verification is reproducible
+rather than drifting with upstream. The live pass count is on the CI badge above.
 
 - **The CEN rule suite, rule by rule.** All 309 official test files, every `<success>` and `<error>`
-  expectation. This is the oracle: it proves agreement with CEN per rule, not just overall.
+  expectation replayed. This is the oracle: it proves agreement with CEN per rule, not just overall.
 - **Published instances.** 70 of 72 KoSIT XRechnung business cases and 10 of 12 Peppol examples
   validate without errors. Every exception is a defect in the published example, verified by hand
   against the rule expression and documented in the test suite.
-- **Real hybrid PDFs**, including a PDF/A-4 variant, a `zugferd-invoice.xml` attachment, an
-  encrypted PDF, one with no attachment, and a truncated one.
+- **Real hybrid PDFs** — 23 of them, including a PDF/A-4 variant, a `zugferd-invoice.xml`
+  attachment, an encrypted PDF, one with no attachment, and a truncated one.
+
+Run it yourself: `python tools/fetch-rules.py && python tools/fetch-corpus.py && dotnet test`.
+The suite writes `corpus/report.md`, `corpus/validation-report.md` and `corpus/pdf-report.md`,
+which CI also uploads as artifacts on every run.
 
 Four defects in published upstream examples found and documented: a KoSIT business case with a
 transposed digit (`BT-112` 336.90 vs `BT-115` 366.86), both Greek Peppol examples violating the
