@@ -5,3 +5,4 @@ corpus/
 rules/
 .tmp/
 *.user
+*.msg
