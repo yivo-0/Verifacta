@@ -24,7 +24,7 @@ public class PdfTests
                 return data;
             }
 
-            foreach (var file in Directory.EnumerateFiles(Root, "*.pdf", SearchOption.AllDirectories).Order())
+            foreach (var file in Corpus.Files(Root, ".pdf"))
             {
                 data.Add(Path.GetRelativePath(Root, file));
             }
@@ -108,7 +108,7 @@ public class PdfTests
         report.AppendLine("| File | Attachment | Syntax | Profile | Invoice id | Outcome |");
         report.AppendLine("|---|---|---|---|---|---|");
 
-        foreach (var file in Directory.EnumerateFiles(Root, "*.pdf", SearchOption.AllDirectories).Order())
+        foreach (var file in Corpus.Files(Root, ".pdf"))
         {
             var name = Path.GetRelativePath(Root, file).Replace('\\', '/');
 

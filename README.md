@@ -141,6 +141,10 @@ UBL 2.1 element sequence, and a German digital-health invoice whose `schemeID="X
 by XRechnung 3.0.2 but rejected by the CEN 1.3.16 code-list rules — a genuine conflict between the
 two specifications.
 
+Separately, the CEN suite ships test files for `BR-CO-25` while its own Schematron never implements
+that rule. A test pins the exact set of tested-but-unimplemented rules, so the day CEN adds one the
+build says so.
+
 ## Not in scope
 
 Writing or generating invoices, Peppol network transport, and ZUGFeRD 1.x (legally superseded —

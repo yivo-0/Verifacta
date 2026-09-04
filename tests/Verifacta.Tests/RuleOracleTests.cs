@@ -29,7 +29,7 @@ public partial class RuleOracleTests(ValidatorFixture fixture)
                 return data;
             }
 
-            foreach (var file in Directory.EnumerateFiles(Root, "*.xml", SearchOption.AllDirectories).Order())
+            foreach (var file in Corpus.Files(Root, ".xml"))
             {
                 data.Add(Path.GetRelativePath(Root, file));
             }
@@ -87,7 +87,7 @@ public partial class RuleOracleTests(ValidatorFixture fixture)
     {
         if (Root is null || !fixture.Available) return;
 
-        var tested = Directory.EnumerateFiles(Root, "*.xml", SearchOption.AllDirectories)
+        var tested = Corpus.Files(Root, ".xml")
             .Select(XDocument.Load)
             .Where(document => document.Root?.Name == Vefa + "testSet")
             .SelectMany(document => document.Descendants(Vefa + "error").Concat(document.Descendants(Vefa + "success")))

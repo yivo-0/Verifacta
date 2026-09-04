@@ -186,7 +186,7 @@ public class CorpusValidationTests(ValidatorFixture fixture)
     {
         var folder = Path.Combine(Root!, source);
         return Directory.Exists(folder)
-            ? Directory.EnumerateFiles(folder, "*.xml", SearchOption.AllDirectories).Order()
+            ? Corpus.Files(folder, ".xml")
             : [];
     }
 

@@ -25,7 +25,7 @@ public class CorpusTests
                 return data;
             }
 
-            foreach (var file in Directory.EnumerateFiles(Root, "*.xml", SearchOption.AllDirectories).Order())
+            foreach (var file in Corpus.Files(Root, ".xml"))
             {
                 data.Add(Path.GetRelativePath(Root, file));
             }
@@ -93,7 +93,7 @@ public class CorpusTests
         var unreadable = new List<string>();
         var withFindings = new List<string>();
 
-        foreach (var file in Directory.EnumerateFiles(Root, "*.xml", SearchOption.AllDirectories).Order())
+        foreach (var file in Corpus.Files(Root, ".xml"))
         {
             var relativePath = Path.GetRelativePath(Root, file);
             var counters = bySource.TryGetValue(SourceOf(relativePath), out var existing)
@@ -189,7 +189,7 @@ public class CorpusTests
 
     private static IEnumerable<(string RelativePath, ReadResult Result)> EnumerateReadable()
     {
-        foreach (var file in Directory.EnumerateFiles(Root!, "*.xml", SearchOption.AllDirectories).Order())
+        foreach (var file in Corpus.Files(Root!, ".xml"))
         {
             ReadResult result;
             try
