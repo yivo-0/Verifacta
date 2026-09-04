@@ -104,7 +104,7 @@ public sealed class InvoiceValidator
     {
         if (!File.Exists(path))
         {
-            throw new RulePackException($"Rule artefact '{path}' is missing. Run 'python tools/fetch-rules.py'.");
+            throw new RulePackException(RulePackCatalog.MissingArtefact(path));
         }
 
         return _processor.NewXsltCompiler().Compile(new Uri(path));

@@ -1,0 +1,180 @@
+{
+  "packs": [
+    {
+      "id": "schemas",
+      "version": "2026-08-31",
+      "repo": "itplr-kosit/validator-configuration-xrechnung",
+      "tag": "v2026-08-31",
+      "licence": "OASIS UBL 2.1 and UN/CEFACT CII D16B, as redistributed by KoSIT (Apache-2.0)",
+      "files": {
+        "ubl/2.1/xsd/maindoc/UBL-Invoice-2.1.xsd": {
+          "bytes": 8948,
+          "sha256": "3a5aacd823f0e5b8f25ae7b5191c2002d5333ba351d87de9371ed62dca2b2b0c",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/maindoc/UBL-Invoice-2.1.xsd"
+        },
+        "ubl/2.1/xsd/maindoc/UBL-CreditNote-2.1.xsd": {
+          "bytes": 8738,
+          "sha256": "1e117b6c1ab713604b29b0d685442a81a0c78a82575445ee8c43e6050cda7454",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/maindoc/UBL-CreditNote-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/CCTS_CCT_SchemaModule-2.1.xsd": {
+          "bytes": 45268,
+          "sha256": "dd546e4809df86b6445589f69f0d6c9df162840ae386574ddfc1da7638103e15",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/CCTS_CCT_SchemaModule-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/UBL-CommonAggregateComponents-2.1.xsd": {
+          "bytes": 256745,
+          "sha256": "580b5af6f68f7f556bd15945ba0e819cbf561442c81694f9b9468036ebedec4d",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/UBL-CommonAggregateComponents-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/UBL-CommonBasicComponents-2.1.xsd": {
+          "bytes": 219704,
+          "sha256": "a3b349bf92e5cff26e303d2f05b7e00c884dcafcfd9e12755fb80289abf5e22e",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/UBL-CommonBasicComponents-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/UBL-CommonExtensionComponents-2.1.xsd": {
+          "bytes": 9491,
+          "sha256": "ad7a4e490978adfbcfc5ec0bb20941cf11ac960ccf0c4de8791a7c731a8dbe87",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/UBL-CommonExtensionComponents-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/UBL-CommonSignatureComponents-2.1.xsd": {
+          "bytes": 3824,
+          "sha256": "4fa9e2370100040fe14c43e135ef77e2eb66b21cb8dbfc2ffb8d82ae991fe92e",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/UBL-CommonSignatureComponents-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/UBL-CoreComponentParameters-2.1.xsd": {
+          "bytes": 3173,
+          "sha256": "8be3379dbdcbcc7802fafdd16bac72c48fff1c0bb364213a31a17911dd06100b",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/UBL-CoreComponentParameters-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/UBL-ExtensionContentDataType-2.1.xsd": {
+          "bytes": 4314,
+          "sha256": "fcee77a11870208e6377ea6311b9f2a050bca24bdad8606ea02d71e9f9e72f8d",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/UBL-ExtensionContentDataType-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/UBL-QualifiedDataTypes-2.1.xsd": {
+          "bytes": 3590,
+          "sha256": "7dcb156e610239c97ae70940cf4653b88e48c3595bf5f56a2204a32e2893e6cf",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/UBL-QualifiedDataTypes-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/UBL-SignatureAggregateComponents-2.1.xsd": {
+          "bytes": 5059,
+          "sha256": "9234c2ca48dbfa9a22a786112bb075c5922a305170920eaab1e3c04fa0b7344b",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/UBL-SignatureAggregateComponents-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/UBL-SignatureBasicComponents-2.1.xsd": {
+          "bytes": 4016,
+          "sha256": "0fbe2d7afff0c1e11164b8ec83e13f18801021c3c87e390a9d76f9cf862f6a64",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/UBL-SignatureBasicComponents-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/UBL-UnqualifiedDataTypes-2.1.xsd": {
+          "bytes": 27300,
+          "sha256": "09052d406b4293e2a5f9c2bfee6df10ad4d8d5f0b36e24a6349d7f7936d89eb6",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/UBL-UnqualifiedDataTypes-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/UBL-XAdESv132-2.1.xsd": {
+          "bytes": 21664,
+          "sha256": "a4f726bcf8cc3f7d9ffa4dab99e005535a8e8b60dced1e5d94578d2e05afa96e",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/UBL-XAdESv132-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/UBL-XAdESv141-2.1.xsd": {
+          "bytes": 1316,
+          "sha256": "1fa4625e9cefcb7a9abb5ac1b64315547450031eece8a55bd584e4ba4b79dbc1",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/UBL-XAdESv141-2.1.xsd"
+        },
+        "ubl/2.1/xsd/common/UBL-xmldsig-core-schema-2.1.xsd": {
+          "bytes": 10750,
+          "sha256": "101909c9f06456d61ddcc4fb982f1d40dc357b439f393b1a2eb46e42acd60809",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/ubl/2.1/xsd/common/UBL-xmldsig-core-schema-2.1.xsd"
+        },
+        "cii/16b/xsd/CrossIndustryInvoice_100pD16B.xsd": {
+          "bytes": 3078,
+          "sha256": "3baf143b90f289d62c5dfb086aa51fa183490a2d0b38a40c6b31dcae0760f2ba",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/cii/16b/xsd/CrossIndustryInvoice_100pD16B.xsd"
+        },
+        "cii/16b/xsd/CrossIndustryInvoice_QualifiedDataType_100pD16B.xsd": {
+          "bytes": 36806,
+          "sha256": "6649215914728652e883662bec1d3eab008c215e86a59f3bb417db9723ee8c5c",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/cii/16b/xsd/CrossIndustryInvoice_QualifiedDataType_100pD16B.xsd"
+        },
+        "cii/16b/xsd/CrossIndustryInvoice_ReusableAggregateBusinessInformationEntity_100pD16B.xsd": {
+          "bytes": 99402,
+          "sha256": "1c42244298a863bcc0b5196983ff0a5d084fcabe58aea77ef82b242e7cd0ddfd",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/cii/16b/xsd/CrossIndustryInvoice_ReusableAggregateBusinessInformationEntity_100pD16B.xsd"
+        },
+        "cii/16b/xsd/CrossIndustryInvoice_UnqualifiedDataType_100pD16B.xsd": {
+          "bytes": 6967,
+          "sha256": "04fce6f6f28521886731294be18a4e6bb5cb3003456457d99ad5c4d3e652f497",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/cii/16b/xsd/CrossIndustryInvoice_UnqualifiedDataType_100pD16B.xsd"
+        }
+      }
+    },
+    {
+      "id": "cen-en16931",
+      "version": "1.3.16",
+      "repo": "ConnectingEurope/eInvoicing-EN16931",
+      "tag": "validation-1.3.16",
+      "licence": "EUPL-1.2",
+      "files": {
+        "EN16931-UBL-validation.xslt": {
+          "bytes": 895489,
+          "sha256": "39f9d282867f1a49e7708d9e29a53da89643e1ee56f10cec1ebcf1277595fcbd",
+          "origin": "en16931-ubl-1.3.16.zip!xslt/EN16931-UBL-validation.xslt"
+        },
+        "EN16931-CII-validation.xslt": {
+          "bytes": 725518,
+          "sha256": "0b234dea2bbfee739b7761e607a992c17fab88773014ef56355b6158cfb1cc53",
+          "origin": "en16931-cii-1.3.16.zip!xslt/EN16931-CII-validation.xslt"
+        }
+      }
+    },
+    {
+      "id": "peppol-bis",
+      "version": "3.0.21",
+      "repo": "itplr-kosit/validator-configuration-bis",
+      "tag": "release-3.0.21",
+      "licence": "Apache-2.0",
+      "files": {
+        "CEN-EN16931-UBL.xslt": {
+          "bytes": 895351,
+          "sha256": "a8a54aef3699057a3820cd2ebcac8ea3c364a6ebaf4a237e62064a5bc2877c4a",
+          "origin": "validation-configuration-bis-3.0.21.zip!resources/peppol/billing-bis/3.0.21/CEN-EN16931-UBL.xslt"
+        },
+        "PEPPOL-EN16931-UBL.xslt": {
+          "bytes": 221885,
+          "sha256": "8c6b935b1bc0bb17d29d949b0aa27ecc62021b613b9fba173cd6bfec6b3f0008",
+          "origin": "validation-configuration-bis-3.0.21.zip!resources/peppol/billing-bis/3.0.21/PEPPOL-EN16931-UBL.xslt"
+        }
+      }
+    },
+    {
+      "id": "xrechnung",
+      "version": "3.0.2",
+      "repo": "itplr-kosit/validator-configuration-xrechnung",
+      "tag": "v2026-08-31",
+      "licence": "Apache-2.0",
+      "files": {
+        "XRechnung-UBL-validation.xsl": {
+          "bytes": 175293,
+          "sha256": "e32d831668facbbd5136cc0119bf1dd6f92ac20738aa3b3f021586f5a305c738",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/xrechnung/3.0.2/xsl/XRechnung-UBL-validation.xsl"
+        },
+        "XRechnung-CII-validation.xsl": {
+          "bytes": 189030,
+          "sha256": "ec54f662803a87f527ec606d1320bc404f1657a848af6a76f37f32905e4aac40",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!resources/xrechnung/3.0.2/xsl/XRechnung-CII-validation.xsl"
+        },
+        "EN16931-UBL-validation.xsl": {
+          "bytes": 1082235,
+          "sha256": "759f2d2e830c7fd1d5a6e8b4f61e5dbafc7a7805862c4ae1c749eeac6adde698",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!EN16931-UBL-validation.xsl"
+        },
+        "EN16931-CII-validation.xsl": {
+          "bytes": 934750,
+          "sha256": "0911e927f13f9ae2cdc7f973643f27bf0ad3c5da02483c04a5b8a47eb4822199",
+          "origin": "xrechnung-3.0.2-validator-configuration-2026-08-31.zip!EN16931-CII-validation.xsl"
+        }
+      }
+    }
+  ]
+}

@@ -50,7 +50,7 @@ internal sealed class SchemaValidator
     {
         if (!Directory.Exists(directory))
         {
-            throw new RulePackException($"Schema directory '{directory}' is missing. Run 'python tools/fetch-rules.py'.");
+            throw new RulePackException(RulePackCatalog.MissingArtefact(directory));
         }
 
         // Every module is added explicitly and xsd:import is not resolved at all. UBL modules

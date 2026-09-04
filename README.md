@@ -51,12 +51,21 @@ a CEN core rule from a German CIUS rule from a Peppol national rule.
 ## Rule packs
 
 The rule artefacts are **not committed**: the CEN rules are EUPL-1.2 and the KoSIT configurations
-are Apache-2.0, so they are fetched on demand and pinned to an upstream release.
+are Apache-2.0, so they stay under their publishers' terms and are downloaded on request.
 
 ```bash
-python tools/fetch-rules.py     # rule packs and XML Schemas
-python tools/fetch-corpus.py    # official test corpora (needed only to run the tests)
+verifacta rules restore    # or: RulePackCatalog.RestoreAsync()
+verifacta rules verify
 ```
+
+That needs nothing but the .NET SDK. The manifest is embedded in the assembly, the download is
+plain HTTPS from the pinned upstream release, and every file is checked against its recorded
+SHA-256 before it is written — a mismatch fails rather than being used. **Nothing else in Verifacta
+touches the network**; validation is entirely local.
+
+Set `VERIFACTA_RULES` to point at an artefact directory you manage yourself, for offline or
+air-gapped deployments. `tools/fetch-rules.py` is the maintainer script for bumping the pinned
+versions and regenerating the manifest; consumers never need it.
 
 | Pack | Version | Source | Licence |
 |---|---|---|---|
@@ -65,7 +74,7 @@ python tools/fetch-corpus.py    # official test corpora (needed only to run the 
 | `peppol-bis` | 3.0.21 | itplr-kosit/validator-configuration-bis | Apache-2.0 |
 | `xrechnung` | 3.0.2 | itplr-kosit/validator-configuration-xrechnung | Apache-2.0 |
 
-`rules/manifest.json` records the release tag, licence and SHA-256 of every artefact.
+`src/Verifacta/RulePacks.json` records the release tag, licence and SHA-256 of every artefact.
 `RulePackCatalog.VerifyIntegrity()` checks them before use.
 
 ## Command line
@@ -91,7 +100,8 @@ rather than drifting with upstream. The live pass count is on the CI badge above
 - **Real hybrid PDFs** — 23 of them, including a PDF/A-4 variant, a `zugferd-invoice.xml`
   attachment, an encrypted PDF, one with no attachment, and a truncated one.
 
-Run it yourself: `python tools/fetch-rules.py && python tools/fetch-corpus.py && dotnet test`.
+Run it yourself: `verifacta rules restore && python tools/fetch-corpus.py && dotnet test`
+(the corpus fetch needs Python and the GitHub CLI; the library itself does not).
 The suite writes `corpus/report.md`, `corpus/validation-report.md` and `corpus/pdf-report.md`,
 which CI also uploads as artifacts on every run.
 
@@ -127,4 +137,5 @@ their publishers and stay under their own terms.
 
 ## Requirements
 
-.NET 8 or .NET 10. Python 3 and the GitHub CLI are needed only to run the fetch scripts.
+.NET 8 or .NET 10, and nothing else. Python 3 and the GitHub CLI are needed only to fetch the test
+corpora or to bump the pinned rule packs — neither is required to use Verifacta.

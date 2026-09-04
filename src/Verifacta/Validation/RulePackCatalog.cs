@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -10,6 +11,10 @@ public sealed class RulePackException : Exception
     public RulePackException(string message) : base(message)
     {
     }
+
+    public RulePackException(string message, Exception inner) : base(message, inner)
+    {
+    }
 }
 
 public sealed class RulePackFile
@@ -20,8 +25,13 @@ public sealed class RulePackFile
     [JsonPropertyName("sha256")]
     public string Sha256 { get; init; } = string.Empty;
 
+    /// <summary>Where the artefact came from, as "release-asset.zip!path/inside/the/archive".</summary>
     [JsonPropertyName("origin")]
     public string Origin { get; init; } = string.Empty;
+
+    internal string Asset => Origin.Split('!', 2)[0];
+
+    internal string Member => Origin.Split('!', 2) is [_, var member] ? member : string.Empty;
 }
 
 public sealed class RulePack
@@ -47,15 +57,23 @@ public sealed class RulePack
     [JsonIgnore]
     public string Directory { get; internal set; } = string.Empty;
 
-    /// <summary>Manifest names use forward slashes; the schema packs are nested.</summary>
+    /// <summary>Manifest names use forward slashes; the schema pack is nested.</summary>
     public string PathTo(string name) =>
         Path.Combine(Directory, name.Replace('/', Path.DirectorySeparatorChar));
 
     public override string ToString() => $"{Id} {Version}";
 }
 
+/// <summary>
+/// The rule packs Verifacta validates against. The manifest is embedded in this assembly and names
+/// every artefact, its upstream release and its SHA-256; the artefacts themselves are downloaded by
+/// <see cref="RestoreAsync"/> because their licences are not ours to redistribute.
+/// </summary>
 public sealed class RulePackCatalog
 {
+    private const string ManifestResource = "Verifacta.RulePacks.json";
+    private const string RestoreHint = "Run 'verifacta rules restore', or call RulePackCatalog.RestoreAsync().";
+
     private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly Dictionary<string, RulePack> _packs;
@@ -66,29 +84,28 @@ public sealed class RulePackCatalog
         _packs = packs.ToDictionary(pack => pack.Id, StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>The directory the artefacts live in. It need not exist yet.</summary>
     public string Root { get; }
 
     public IReadOnlyCollection<RulePack> Packs => _packs.Values;
 
+    /// <summary>True when every artefact named in the manifest is present on disk.</summary>
+    public bool IsRestored => _packs.Values.All(pack => pack.Files.Keys.All(name => File.Exists(pack.PathTo(name))));
+
     /// <summary>
-    /// Loads <c>rules/manifest.json</c>. When <paramref name="rulesDirectory"/> is null the
-    /// directory is located by walking up from the running assembly, which is how the tests and
-    /// the CLI find it after <c>tools/fetch-rules.py</c> has run.
+    /// Reads the embedded manifest. When <paramref name="rulesDirectory"/> is null the artefact
+    /// directory is the first "rules" folder found from the running assembly upwards, falling back
+    /// to "rules" beside the assembly so a restore has somewhere to write.
     /// </summary>
     public static RulePackCatalog Load(string? rulesDirectory = null)
     {
-        var root = rulesDirectory ?? Locate()
-            ?? throw new RulePackException(
-                "No 'rules' directory found. Run 'python tools/fetch-rules.py' to download the rule packs.");
+        using var stream = typeof(RulePackCatalog).GetTypeInfo().Assembly.GetManifestResourceStream(ManifestResource)
+            ?? throw new RulePackException($"The embedded manifest '{ManifestResource}' is missing from the assembly.");
 
-        var manifestPath = Path.Combine(root, "manifest.json");
-        if (!File.Exists(manifestPath))
-        {
-            throw new RulePackException($"No manifest at '{manifestPath}'. Run 'python tools/fetch-rules.py'.");
-        }
+        var manifest = JsonSerializer.Deserialize<Manifest>(stream, SerializerOptions)
+            ?? throw new RulePackException($"The embedded manifest '{ManifestResource}' could not be read.");
 
-        var manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(manifestPath), SerializerOptions)
-            ?? throw new RulePackException($"'{manifestPath}' is not a valid rule pack manifest.");
+        var root = rulesDirectory ?? Locate() ?? Path.Combine(AppContext.BaseDirectory, "rules");
 
         foreach (var pack in manifest.Packs)
         {
@@ -102,9 +119,7 @@ public sealed class RulePackCatalog
         ? pack
         : throw new RulePackException($"Rule pack '{id}' is not in the manifest.");
 
-    /// <summary>
-    /// Confirms every artefact is present and matches the SHA-256 recorded when it was fetched.
-    /// </summary>
+    /// <summary>Confirms every artefact is present and matches the SHA-256 recorded in the manifest.</summary>
     public void VerifyIntegrity()
     {
         foreach (var pack in _packs.Values)
@@ -114,17 +129,81 @@ public sealed class RulePackCatalog
                 var path = pack.PathTo(name);
                 if (!File.Exists(path))
                 {
-                    throw new RulePackException($"{pack} is missing '{name}'. Re-run 'python tools/fetch-rules.py'.");
+                    throw new RulePackException($"{pack} is missing '{name}'. {RestoreHint}");
                 }
 
-                var actual = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
-                if (!string.Equals(actual, expected.Sha256, StringComparison.OrdinalIgnoreCase))
+                if (!Matches(path, expected.Sha256))
                 {
                     throw new RulePackException(
-                        $"{pack} artefact '{name}' does not match the manifest hash. Expected {expected.Sha256}, found {actual}.");
+                        $"{pack} artefact '{name}' does not match the manifest hash. {RestoreHint}");
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Downloads any artefact that is missing or does not match its recorded hash, straight from the
+    /// pinned upstream release. Nothing is downloaded unless this is called: a compliance library
+    /// should not make network calls behind the caller's back.
+    /// </summary>
+    /// <returns>The artefacts that were written.</returns>
+    public async Task<IReadOnlyList<string>> RestoreAsync(
+        bool force = false,
+        HttpClient? client = null,
+        CancellationToken cancellationToken = default)
+    {
+        var owned = client is null;
+        client ??= new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+        var written = new List<string>();
+
+        try
+        {
+            foreach (var pack in _packs.Values)
+            {
+                var outstanding = pack.Files
+                    .Where(file => force || !Matches(pack.PathTo(file.Key), file.Value.Sha256))
+                    .ToList();
+
+                if (outstanding.Count == 0) continue;
+
+                // One download per release asset, however many artefacts we take out of it.
+                foreach (var group in outstanding.GroupBy(file => file.Value.Asset))
+                {
+                    using var archive = await OpenAssetAsync(client, pack, group.Key, cancellationToken);
+
+                    foreach (var (name, file) in group)
+                    {
+                        var entry = archive.GetEntry(file.Member)
+                            ?? throw new RulePackException(
+                                $"'{file.Member}' is not in {group.Key} of {pack.Repository}@{pack.Tag}.");
+
+                        using var content = entry.Open();
+                        using var buffer = new MemoryStream();
+                        await content.CopyToAsync(buffer, cancellationToken);
+                        var bytes = buffer.ToArray();
+
+                        var actual = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+                        if (!string.Equals(actual, file.Sha256, StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new RulePackException(
+                                $"{pack} artefact '{name}' downloaded from {pack.Repository}@{pack.Tag} " +
+                                $"has hash {actual}, but the manifest records {file.Sha256}.");
+                        }
+
+                        var path = pack.PathTo(name);
+                        System.IO.Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                        await File.WriteAllBytesAsync(path, bytes, cancellationToken);
+                        written.Add($"{pack.Id}/{pack.Version}/{name}");
+                    }
+                }
+            }
+        }
+        finally
+        {
+            if (owned) client.Dispose();
+        }
+
+        return written;
     }
 
     public static RuleSet RuleSetFor(InvoiceProfile profile) => profile.Kind switch
@@ -173,18 +252,74 @@ public sealed class RulePackCatalog
         return $"{pack.Id} {pack.Version} ({pack.Repository}@{pack.Tag})";
     }
 
+    internal static string MissingArtefact(string path) =>
+        $"Rule artefact '{path}' is missing. {RestoreHint}";
+
+    private static async Task<System.IO.Compression.ZipArchive> OpenAssetAsync(
+        HttpClient client, RulePack pack, string asset, CancellationToken cancellationToken)
+    {
+        var url = $"https://github.com/{pack.Repository}/releases/download/{pack.Tag}/{asset}";
+
+        try
+        {
+            var response = await client.GetAsync(url, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var buffer = new MemoryStream();
+            await response.Content.CopyToAsync(buffer, cancellationToken);
+            buffer.Position = 0;
+
+            return new System.IO.Compression.ZipArchive(buffer, System.IO.Compression.ZipArchiveMode.Read);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            throw new RulePackException($"Could not download {url}: {exception.Message}", exception);
+        }
+    }
+
+    private static bool Matches(string path, string sha256) =>
+        File.Exists(path) &&
+        string.Equals(
+            Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))),
+            sha256,
+            StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// An existing "rules" directory at or above the assembly wins. Failing that, in a source
+    /// checkout the artefacts belong at the repository root rather than inside bin/, so a
+    /// directory holding .git or a solution file is treated as the root. Otherwise they sit beside
+    /// the assembly, which is what a deployed application wants.
+    /// </summary>
     private static string? Locate()
     {
+        if (Environment.GetEnvironmentVariable("VERIFACTA_RULES") is { Length: > 0 } configured)
+        {
+            return configured;
+        }
+
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        string? repositoryRoot = null;
+
         while (directory is not null)
         {
             var candidate = Path.Combine(directory.FullName, "rules");
-            if (File.Exists(Path.Combine(candidate, "manifest.json"))) return candidate;
+            if (System.IO.Directory.Exists(candidate)) return candidate;
+
+            if (repositoryRoot is null && IsRepositoryRoot(directory))
+            {
+                repositoryRoot = candidate;
+            }
+
             directory = directory.Parent;
         }
 
-        return null;
+        return repositoryRoot;
     }
+
+    private static bool IsRepositoryRoot(DirectoryInfo directory) =>
+        System.IO.Directory.Exists(Path.Combine(directory.FullName, ".git")) ||
+        directory.EnumerateFiles("*.sln").Any() ||
+        directory.EnumerateFiles("*.slnx").Any();
 
     private sealed class Manifest
     {

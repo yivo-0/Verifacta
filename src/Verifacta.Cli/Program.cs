@@ -14,6 +14,19 @@ var paths = args.Skip(1).Where(argument => !argument.StartsWith('-')).ToList();
 var options = args.Skip(1).Where(argument => argument.StartsWith('-')).ToList();
 var json = options.Contains("--json");
 
+if (command == "rules")
+{
+    try
+    {
+        return await Rules(paths.FirstOrDefault(), options.Contains("--force"));
+    }
+    catch (RulePackException exception)
+    {
+        Error(exception.Message);
+        return ExitCode.Failed;
+    }
+}
+
 if (paths.Count == 0)
 {
     Error("No file given.");
@@ -34,6 +47,47 @@ catch (RulePackException exception)
 {
     Error(exception.Message);
     return ExitCode.Failed;
+}
+
+async Task<int> Rules(string? subcommand, bool force)
+{
+    var catalog = RulePackCatalog.Load();
+
+    switch (subcommand)
+    {
+        case "restore":
+            Console.WriteLine($"Restoring rule packs into {catalog.Root}");
+            var written = await catalog.RestoreAsync(force);
+
+            if (written.Count == 0)
+            {
+                Console.WriteLine("Everything is already present and matches the manifest.");
+            }
+
+            foreach (var artefact in written)
+            {
+                Console.WriteLine($"  {artefact}");
+            }
+
+            catalog.VerifyIntegrity();
+            Console.WriteLine($"{catalog.Packs.Count} packs ready.");
+            return ExitCode.Valid;
+
+        case "verify":
+            catalog.VerifyIntegrity();
+            foreach (var pack in catalog.Packs.OrderBy(pack => pack.Id))
+            {
+                Console.WriteLine($"  {pack.Id,-14} {pack.Version,-12} {pack.Files.Count,2} artefacts  " +
+                                  $"{pack.Licence}  {pack.Repository}@{pack.Tag}");
+            }
+
+            Console.WriteLine($"All artefacts match the manifest in {catalog.Root}.");
+            return ExitCode.Valid;
+
+        default:
+            Error("Usage: verifacta rules restore [--force] | verifacta rules verify");
+            return ExitCode.Usage;
+    }
 }
 
 int Validate(List<string> files, List<string> flags, bool asJson)
@@ -209,8 +263,14 @@ static void Usage()
         verifacta — validate EN 16931 electronic invoices
 
         Usage:
+          verifacta rules restore [--force]
+          verifacta rules verify
           verifacta validate <file...> [--rules en16931|peppol|xrechnung] [--no-schema] [--json]
           verifacta info <file...> [--json]
+
+        Run "rules restore" once: it downloads the validation artefacts from their
+        publishers and checks them against the SHA-256 recorded in the manifest.
+        Nothing else in Verifacta touches the network.
 
         Files may be UBL or CII XML, or a hybrid Factur-X / ZUGFeRD 2.x PDF.
         The rule set is taken from the invoice itself unless --rules says otherwise.

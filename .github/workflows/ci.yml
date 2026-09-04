@@ -24,14 +24,16 @@ jobs:
             8.0.x
             10.0.x
 
-      - name: Fetch rule packs and schemas
-        run: python tools/fetch-rules.py
+      - name: Build
+        run: dotnet build --configuration Release
+
+      # Uses the embedded manifest and plain HTTPS: no Python, no gh CLI. This is the same
+      # command a consumer runs, so CI exercises the real restore path.
+      - name: Restore the rule packs
+        run: dotnet run --project src/Verifacta.Cli --configuration Release --no-build -- rules restore
 
       - name: Fetch the official test corpora
         run: python tools/fetch-corpus.py
-
-      - name: Build
-        run: dotnet build --configuration Release
 
       - name: Test
         run: dotnet test --configuration Release --no-build

@@ -1,4 +1,9 @@
-"""Downloads the precompiled Schematron XSLT for each rule pack Verifacta validates against.
+"""Maintainer tool: bumps the pinned rule packs and regenerates the committed manifest.
+
+Users do not need this script. They run `verifacta rules restore`, or call
+RulePackCatalog.Restore(), which downloads the same artefacts using the embedded manifest.
+
+Downloads the precompiled Schematron XSLT for each rule pack Verifacta validates against.
 
 Every pack is pinned to an upstream release tag. The artefacts are NOT committed: the CEN
 rules are EUPL-1.2 and the KoSIT configurations are Apache-2.0, so they stay outside the
@@ -17,6 +22,12 @@ import sys
 import zipfile
 
 RULES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rules")
+
+# The manifest is committed and embedded in the assembly: it is what RulePackCatalog.Restore()
+# downloads from, so a clone with only the .NET SDK can fetch its own artefacts. The rules/
+# directory holds the artefacts themselves and stays out of git.
+MANIFEST = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "src", "Verifacta", "RulePacks.json")
 
 KOSIT_CONFIG = "xrechnung-3.0.2-validator-configuration-2026-08-31.zip"
 
@@ -147,11 +158,12 @@ def main():
             "files": files,
         })
 
-    with open(os.path.join(RULES, "manifest.json"), "w", encoding="utf-8") as handle:
+    with open(MANIFEST, "w", encoding="utf-8") as handle:
         json.dump(manifest, handle, indent=2)
         handle.write("\n")
 
     print(f"\n{sum(len(p['files']) for p in manifest['packs'])} artefacts in {os.path.normpath(RULES)}")
+    print(f"manifest written to {os.path.normpath(MANIFEST)} - commit it")
 
 
 if __name__ == "__main__":
