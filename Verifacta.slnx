@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Verifacta.Cli/Verifacta.Cli.csproj" />
+    <Project Path="src/Verifacta/Verifacta.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Verifacta.Tests/Verifacta.Tests.csproj" />
+  </Folder>
+</Solution>

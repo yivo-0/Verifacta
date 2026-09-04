@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # The fetch scripts call the GitHub release API through the gh CLI.
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Fetch rule packs and schemas
+        run: python tools/fetch-rules.py
+
+      - name: Fetch the official test corpora
+        run: python tools/fetch-corpus.py
+
+      - name: Build
+        run: dotnet build --configuration Release
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build
+
+      - name: Publish corpus reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpus-reports
+          path: |
+            corpus/report.md
+            corpus/validation-report.md
+            corpus/pdf-report.md
+          if-no-files-found: warn

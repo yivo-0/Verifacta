@@ -1,0 +1,48 @@
+Verifacta
+Copyright (c) 2026 Oleh Yanytskyi
+
+Licensed under the Business Source License 1.1 (see LICENSE).
+
+
+Third-party components distributed with Verifacta
+-------------------------------------------------
+
+SaxonCS-HE 13.0.0 — Saxonica Limited, United Kingdom
+  Mozilla Public License 2.0
+  https://www.mozilla.org/MPL/2.0/
+  https://github.com/Saxonica/Saxon-HE
+
+PDFsharp 6.2.4 — empira Software GmbH, Germany
+  MIT License
+  https://github.com/empira/PDFsharp
+
+
+Validation artefacts — NOT distributed with Verifacta
+-----------------------------------------------------
+
+The Schematron and XML Schema artefacts Verifacta validates against are not
+included in this repository or in the Verifacta package. tools/fetch-rules.py
+downloads them from their publishers, and rules/manifest.json records the
+release tag, licence and SHA-256 of every file. Each artefact remains subject
+to the licence of its publisher.
+
+EN 16931 validation artefacts — CEN/TC 434
+  European Union Public Licence v1.2
+  https://github.com/ConnectingEurope/eInvoicing-EN16931
+
+Peppol BIS Billing 3.0 validator configuration — KoSIT
+  Apache License 2.0
+  https://github.com/itplr-kosit/validator-configuration-bis
+
+XRechnung validator configuration — KoSIT
+  Apache License 2.0
+  https://github.com/itplr-kosit/validator-configuration-xrechnung
+
+UBL 2.1 schemas — OASIS
+CII D16B schemas — UN/CEFACT
+  redistributed by KoSIT under the Apache License 2.0
+  https://github.com/itplr-kosit/validator-configuration-xrechnung
+
+The Peppol BIS Schematron reproduces business terms defined in CEN/EN 16931-1
+with permission from CEN. CEN bears no liability arising from the use of that
+content and gives no warranties, express or implied, for any purpose.
