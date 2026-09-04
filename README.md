@@ -77,6 +77,17 @@ versions and regenerating the manifest; consumers never need it.
 `src/Verifacta/RulePacks.json` records the release tag, licence and SHA-256 of every artefact.
 `RulePackCatalog.VerifyIntegrity()` checks them before use.
 
+### Staying current
+
+CEN, OpenPeppol and KoSIT each publish roughly twice a year, and a national CIUS release can
+change the verdict on invoices that previously passed. A [scheduled
+workflow](.github/workflows/rule-updates.yml) checks every pinned pack against its upstream release
+weekly and opens an issue when one falls behind, so the gap is visible rather than discovered by a
+rejected invoice.
+
+The bump itself is deliberately manual — the corpus reports are reviewed for changed verdicts
+before a new pack version ships.
+
 ## Command line
 
 ```bash

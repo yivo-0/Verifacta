@@ -1,0 +1,27 @@
+name: rule-updates
+
+# The subscription promises that upstream rule releases are tracked. This makes the tracking
+# mechanical rather than a promise: it checks every Monday and opens an issue when a pack falls
+# behind. It deliberately does not bump anything — a rule update can change the verdict on invoices
+# that previously passed, so the bump needs a human reading the upstream changelog.
+on:
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check pinned rule packs against upstream
+        run: python tools/check-rule-updates.py --issue
+        continue-on-error: true
