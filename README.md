@@ -92,11 +92,30 @@ before a new pack version ships.
 
 ```bash
 verifacta validate invoice.xml
-verifacta validate *.xml --rules xrechnung --json
 verifacta info invoice.pdf
 ```
 
-Exit codes: `0` valid, `1` validation errors, `2` the file could not be processed, `64` usage error.
+Point it at a folder to find out how much of an existing archive an access point would reject:
+
+```bash
+verifacta validate ./invoices --recursive --csv report.csv
+```
+
+```
+72 file(s): 70 valid, 2 with errors, 0 unreadable
+
+Most frequent errors:
+  BR-CL-10                     1 file(s)
+  BR-CL-21                     1 file(s)
+  BR-CO-16                     1 file(s)
+```
+
+The CSV carries one row per invoice — status, rule set, schema result, error and warning counts,
+and the rule ids — so a large archive can be triaged in a spreadsheet. Validation runs in parallel
+across cores; 521 files take about 12 seconds including the one-off rule-pack compilation.
+
+Options: `--rules en16931|peppol|xrechnung`, `--recursive`, `--csv <file>`, `--json`, `--no-schema`.
+Exit codes: `0` valid, `1` validation errors, `2` a file could not be processed, `64` usage error.
 
 ## Verified against
 

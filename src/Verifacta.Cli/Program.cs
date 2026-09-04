@@ -10,36 +10,43 @@ if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
 }
 
 var command = args[0];
-var paths = args.Skip(1).Where(argument => !argument.StartsWith('-')).ToList();
-var options = args.Skip(1).Where(argument => argument.StartsWith('-')).ToList();
-var json = options.Contains("--json");
+var paths = new List<string>();
+var flags = new HashSet<string>(StringComparer.Ordinal);
+var values = new Dictionary<string, string>(StringComparer.Ordinal);
 
-if (command == "rules")
-{
-    try
-    {
-        return await Rules(paths.FirstOrDefault(), options.Contains("--force"));
-    }
-    catch (RulePackException exception)
-    {
-        Error(exception.Message);
-        return ExitCode.Failed;
-    }
-}
+// Options that take a value are consumed with their argument, otherwise "--rules xrechnung" would
+// treat "xrechnung" as a file to validate.
+string[] valueOptions = ["--rules", "--csv"];
 
-if (paths.Count == 0)
+for (var index = 1; index < args.Length; index++)
 {
-    Error("No file given.");
-    Usage();
-    return ExitCode.Usage;
+    var argument = args[index];
+
+    if (!argument.StartsWith('-'))
+    {
+        paths.Add(argument);
+    }
+    else if (argument.IndexOf('=') is var equals && equals > 0)
+    {
+        values[argument[..equals]] = argument[(equals + 1)..];
+    }
+    else if (valueOptions.Contains(argument) && index + 1 < args.Length)
+    {
+        values[argument] = args[++index];
+    }
+    else
+    {
+        flags.Add(argument);
+    }
 }
 
 try
 {
     return command switch
     {
-        "validate" => Validate(paths, options, json),
-        "info" => Info(paths, json),
+        "rules" => await Rules(paths.FirstOrDefault(), flags.Contains("--force")),
+        "validate" => Validate(),
+        "info" => Info(),
         _ => Unknown(command),
     };
 }
@@ -75,10 +82,10 @@ async Task<int> Rules(string? subcommand, bool force)
 
         case "verify":
             catalog.VerifyIntegrity();
-            foreach (var pack in catalog.Packs.OrderBy(pack => pack.Id))
+            foreach (var pack in catalog.Packs.OrderBy(pack => pack.Id, StringComparer.Ordinal))
             {
                 Console.WriteLine($"  {pack.Id,-14} {pack.Version,-12} {pack.Files.Count,2} artefacts  " +
-                                  $"{pack.Licence}  {pack.Repository}@{pack.Tag}");
+                                  $"{pack.Repository}@{pack.Tag}");
             }
 
             Console.WriteLine($"All artefacts match the manifest in {catalog.Root}.");
@@ -90,56 +97,65 @@ async Task<int> Rules(string? subcommand, bool force)
     }
 }
 
-int Validate(List<string> files, List<string> flags, bool asJson)
+int Validate()
 {
-    var ruleSet = RuleSet(flags);
-    var validateSchema = !flags.Contains("--no-schema");
-    var validator = new InvoiceValidator();
-    var reports = new List<Report>();
-    var worst = ExitCode.Valid;
+    var files = Batch.Expand(paths, flags.Contains("--recursive") || flags.Contains("-r"));
 
-    foreach (var file in files)
+    if (files.Count == 0)
     {
-        try
-        {
-            var document = InvoiceDocument.Load(file);
-            var result = validator.Validate(document, ruleSet, validateSchema);
-
-            reports.Add(new Report(
-                file,
-                result.IsValid ? "valid" : "invalid",
-                result.RuleSet.ToString(),
-                result.SchemaValid,
-                document.EmbeddedFileName,
-                result.Findings.Select(Finding.From).ToList(),
-                null));
-
-            if (!result.IsValid) worst = ExitCode.Invalid;
-        }
-        catch (Exception exception) when (exception is UnsupportedDocumentException or ValidationException)
-        {
-            reports.Add(new Report(file, "error", null, false, null, [], exception.Message));
-            worst = ExitCode.Failed;
-        }
+        Error(paths.Count == 0 ? "No file or folder given." : "No .xml or .pdf files found.");
+        return ExitCode.Usage;
     }
 
-    if (asJson)
+    var validator = new InvoiceValidator();
+
+    // Compiling every pack up front costs seconds once; over an archive it pays for itself, and it
+    // keeps the progress line honest instead of stalling on the first file.
+    if (files.Count > 10)
+    {
+        Console.Error.WriteLine($"Compiling rule packs, then validating {files.Count} files...");
+        validator.Warmup();
+    }
+
+    var reports = Batch.Run(validator, files, RuleSet(), !flags.Contains("--no-schema"));
+
+    if (flags.Contains("--json"))
     {
         Console.WriteLine(JsonSerializer.Serialize(reports, JsonDefaults.Options));
-        return worst;
     }
-
-    foreach (var report in reports)
+    else if (values.TryGetValue("--csv", out var csv))
     {
-        PrintText(report, files.Count > 1);
+        using var writer = new StreamWriter(csv);
+        Batch.WriteCsv(writer, reports);
+        Console.WriteLine($"Wrote {reports.Count} rows to {csv}");
+        Batch.WriteSummary(Console.Out, reports);
+    }
+    else
+    {
+        foreach (var report in reports)
+        {
+            PrintText(report, files.Count > 1);
+        }
+
+        if (files.Count > 1) Batch.WriteSummary(Console.Out, reports);
     }
 
-    return worst;
+    if (reports.Any(report => report.Status == "error")) return ExitCode.Failed;
+
+    return reports.Any(report => report.Status == "invalid") ? ExitCode.Invalid : ExitCode.Valid;
 }
 
-int Info(List<string> files, bool asJson)
+int Info()
 {
+    var files = Batch.Expand(paths, flags.Contains("--recursive") || flags.Contains("-r"));
     var summaries = new List<object>();
+    var asJson = flags.Contains("--json");
+
+    if (files.Count == 0)
+    {
+        Error("No file or folder given.");
+        return ExitCode.Usage;
+    }
 
     foreach (var file in files)
     {
@@ -233,28 +249,17 @@ static int Unknown(string command)
     return ExitCode.Usage;
 }
 
-static void Error(string message)
-{
-    Console.Error.WriteLine(message);
-}
+static void Error(string message) => Console.Error.WriteLine(message);
 
-static RuleSet? RuleSet(List<string> flags)
-{
-    var index = flags.FindIndex(flag => flag is "--rules");
-    var inline = flags.FirstOrDefault(flag => flag.StartsWith("--rules=", StringComparison.Ordinal));
-
-    var value = inline?["--rules=".Length..]
-                ?? (index >= 0 && index + 1 < flags.Count ? flags[index + 1] : null);
-
-    return value?.ToLowerInvariant() switch
+RuleSet? RuleSet() => values.TryGetValue("--rules", out var value)
+    ? value.ToLowerInvariant() switch
     {
-        null => null,
         "en16931" => Verifacta.Validation.RuleSet.En16931,
         "peppol" => Verifacta.Validation.RuleSet.PeppolBisBilling3,
         "xrechnung" => Verifacta.Validation.RuleSet.XRechnung,
         _ => throw new RulePackException($"Unknown rule set '{value}'. Use en16931, peppol or xrechnung."),
-    };
-}
+    }
+    : null;
 
 static void Usage()
 {
@@ -265,20 +270,27 @@ static void Usage()
         Usage:
           verifacta rules restore [--force]
           verifacta rules verify
-          verifacta validate <file...> [--rules en16931|peppol|xrechnung] [--no-schema] [--json]
-          verifacta info <file...> [--json]
+          verifacta validate <file|folder...> [options]
+          verifacta info <file|folder...> [--json]
+
+        Options:
+          --rules <set>   en16931 | peppol | xrechnung (default: taken from the invoice)
+          --recursive     descend into subfolders, -r for short
+          --csv <file>    write one row per invoice, with a summary on the console
+          --json          machine-readable output
+          --no-schema     check business rules only, skipping XML Schema
 
         Run "rules restore" once: it downloads the validation artefacts from their
         publishers and checks them against the SHA-256 recorded in the manifest.
         Nothing else in Verifacta touches the network.
 
-        Files may be UBL or CII XML, or a hybrid Factur-X / ZUGFeRD 2.x PDF.
-        The rule set is taken from the invoice itself unless --rules says otherwise.
+        Files may be UBL or CII XML, or a hybrid Factur-X / ZUGFeRD 2.x PDF. Point it at a
+        folder to see how much of an existing archive would be rejected.
 
         Exit codes:
           0  valid
           1  validation errors
-          2  the file could not be processed
+          2  a file could not be processed
           64 usage error
         """);
 }
@@ -289,32 +301,6 @@ internal static class ExitCode
     internal const int Invalid = 1;
     internal const int Failed = 2;
     internal const int Usage = 64;
-}
-
-internal sealed record Report(
-    string File,
-    string Status,
-    string? RuleSet,
-    bool SchemaValid,
-    string? Attachment,
-    List<Finding> Findings,
-    string? Error);
-
-internal sealed record Finding(
-    string RuleId,
-    string Severity,
-    string Message,
-    string Location,
-    List<string> BusinessTerms,
-    string Artefact)
-{
-    internal static Finding From(ValidationFinding finding) => new(
-        finding.RuleId,
-        finding.Severity.ToString(),
-        finding.Message,
-        finding.Location,
-        finding.BusinessTerms.ToList(),
-        finding.Artefact);
 }
 
 internal static class JsonDefaults
