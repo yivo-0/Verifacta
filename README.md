@@ -117,6 +117,8 @@ Germany requires 2.0.1 or later; v1 files are detected and rejected with a clear
 - On **2030-09-04** this version becomes Apache 2.0 automatically, so there is no lock-in if the
   project stops being maintained.
 
+For a commercial licence, or if you are unsure which applies to you, email oleganickij02@gmail.com.
+
 Third-party components and the licences of the validation artefacts are listed in [NOTICE](NOTICE).
 Verifacta depends on [SaxonCS-HE](https://www.nuget.org/packages/SaxonCS-HE) (Saxonica, MPL-2.0) for
 XSLT 3.0 and [PDFsharp](https://www.nuget.org/packages/PDFsharp) (empira, MIT) for PDF attachments.
