@@ -75,3 +75,53 @@ jobs:
             corpus/validation-report.md
             corpus/pdf-report.md
           if-no-files-found: warn
+
+  # Verifacta runs the publishers' own artefacts, so it should agree with the tool the publishers
+  # ship. This is the job that proves it instead of asserting it. Java is needed to run the
+  # reference; it is not needed to use Verifacta, which is the whole point.
+  reference:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache the reference validator and its configuration
+        uses: actions/cache@v4
+        with:
+          path: .tmp/reference
+          key: reference-${{ hashFiles('src/Verifacta/RulePacks.json', 'tools/reference-diff.py') }}
+
+      - name: Build
+        run: dotnet build --configuration Release
+
+      - name: Restore the rule packs
+        run: dotnet run --project src/Verifacta.Cli --configuration Release --no-build -- rules restore
+
+      - name: Fetch the official test corpora
+        run: python tools/fetch-corpus.py
+
+      - name: Compare against the reference validator
+        run: python tools/reference-diff.py
+
+      - name: Publish the comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-diff
+          path: corpus/reference-diff.md
+          if-no-files-found: warn
