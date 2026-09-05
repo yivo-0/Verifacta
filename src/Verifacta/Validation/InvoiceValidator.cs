@@ -12,7 +12,7 @@ namespace Verifacta.Validation;
 public sealed class InvoiceValidator
 {
     private readonly Processor _processor = new();
-    private readonly ConcurrentDictionary<string, XsltExecutable> _compiled = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Lazy<XsltExecutable>> _compiled = new(StringComparer.OrdinalIgnoreCase);
     private readonly SchemaValidator _schema = new();
     private readonly RulePackCatalog _catalog;
 
@@ -39,9 +39,8 @@ public sealed class InvoiceValidator
         {
             var schemaFindings = _schema.Validate(
                 document.Xml,
-                _catalog.SchemaDirectory,
-                RulePackCatalog.SchemaName(document.Syntax, document.Kind),
-                _catalog.Pack("schemas").ToString());
+                _catalog.Pack("schemas"),
+                RulePackCatalog.SchemaName(document.Syntax, document.Kind));
 
             findings.AddRange(schemaFindings);
             schemaValid = schemaFindings.All(finding => finding.Severity != ValidationSeverity.Error);
@@ -57,26 +56,21 @@ public sealed class InvoiceValidator
             }
         }
 
-        return new ValidationResult(selected, [pack], findings, schemaValid);
+        return new ValidationResult(selected, [pack], findings, schemaValid, validateSchema);
     }
 
     /// <summary>
-    /// Compiles every rule pack up front so the first validation is not the one that pays for it.
+    /// Compiles every rule artefact up front so the first validation is not the one that pays for
+    /// it. Only the validation layers: the catalog also holds the visualisation stylesheets, which
+    /// belong to <see cref="Rendering.InvoiceRenderer"/> and do not all compile standalone.
     /// </summary>
     public void Warmup()
     {
-        foreach (var pack in _catalog.Packs)
+        foreach (var layer in _catalog.ValidationLayers())
         {
-            foreach (var name in pack.Files.Keys.Where(IsStylesheet))
-            {
-                Compiled(Path.Combine(pack.Directory, name));
-            }
+            Compiled(layer);
         }
     }
-
-    private static bool IsStylesheet(string name) =>
-        name.EndsWith(".xsl", StringComparison.OrdinalIgnoreCase) ||
-        name.EndsWith(".xslt", StringComparison.OrdinalIgnoreCase);
 
     private XDocument Transform(string stylesheet, XdmNode input)
     {
@@ -100,13 +94,17 @@ public sealed class InvoiceValidator
         return XDocument.Parse(destination.XdmNode.ToString());
     }
 
-    private XsltExecutable Compiled(string stylesheet) => _compiled.GetOrAdd(stylesheet, path =>
-    {
-        if (!File.Exists(path))
+    // Lazy, not a bare factory: GetOrAdd does not lock, so a cold cache under Parallel.ForEach
+    // would otherwise have every thread compile the same multi-second stylesheet at once.
+    private XsltExecutable Compiled(string stylesheet) => _compiled.GetOrAdd(
+        stylesheet,
+        path => new Lazy<XsltExecutable>(() =>
         {
-            throw new RulePackException(RulePackCatalog.MissingArtefact(path));
-        }
+            if (!File.Exists(path))
+            {
+                throw new RulePackException(RulePackCatalog.MissingArtefact(path));
+            }
 
-        return _processor.NewXsltCompiler().Compile(new Uri(path));
-    });
+            return _processor.NewXsltCompiler().Compile(new Uri(path));
+        })).Value;
 }

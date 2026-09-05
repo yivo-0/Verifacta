@@ -19,11 +19,11 @@ internal sealed class SchemaValidator
 
     internal IReadOnlyList<ValidationFinding> Validate(
         XDocument document,
-        string schemaDirectory,
-        string artefact,
-        string pack)
+        RulePack schemaPack,
+        string artefact)
     {
-        var schemas = _sets.GetOrAdd(schemaDirectory, Compile);
+        var schemas = _sets.GetOrAdd(schemaPack.Directory, _ => Compile(schemaPack));
+        var pack = schemaPack.ToString();
         var findings = new List<ValidationFinding>();
 
         document.Validate(schemas, (sender, args) =>
@@ -46,13 +46,8 @@ internal sealed class SchemaValidator
         return findings;
     }
 
-    private static XmlSchemaSet Compile(string directory)
+    private static XmlSchemaSet Compile(RulePack pack)
     {
-        if (!Directory.Exists(directory))
-        {
-            throw new RulePackException(RulePackCatalog.MissingArtefact(directory));
-        }
-
         // Every module is added explicitly and xsd:import is not resolved at all. UBL modules
         // reference each other's prefixes without always importing them, so following imports
         // alone fails to compile; resolving imports *as well* loads some namespaces twice. Feeding
@@ -69,8 +64,16 @@ internal sealed class SchemaValidator
             XmlResolver = null,
         };
 
-        foreach (var file in Directory.EnumerateFiles(directory, "*.xsd", SearchOption.AllDirectories).Order())
+        // The manifest names the modules, rather than globbing the directory: a search pattern is
+        // case-sensitive on Linux, and anything else left in the folder would join the set.
+        foreach (var name in pack.Files.Keys.Order(StringComparer.Ordinal))
         {
+            var file = pack.PathTo(name);
+            if (!File.Exists(file))
+            {
+                throw new RulePackException(RulePackCatalog.MissingArtefact(file));
+            }
+
             using var reader = XmlReader.Create(file, settings);
             set.Add(XmlSchema.Read(reader, null)
                 ?? throw new RulePackException($"'{file}' is not a valid XML Schema."));
