@@ -16,9 +16,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="AngleSharp" Version="1.7.3" />
     <PackageReference Include="PDFsharp" Version="6.2.4" />
     <PackageReference Include="SaxonCS-HE" Version="13.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Not used by Verifacta. PDFsharp pulls both in transitively at versions carrying published
+      advisories (AngleSharp 1.2.0, System.Security.Cryptography.Xml 10.0.7); these references
+      exist only to raise them to patched versions. Remove them when PDFsharp ships newer
+      dependencies of its own, not before — dotnet build -warnaserror is what catches a regression.
+    -->
+    <PackageReference Include="AngleSharp" Version="1.7.3" />
     <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.11" />
   </ItemGroup>
 
