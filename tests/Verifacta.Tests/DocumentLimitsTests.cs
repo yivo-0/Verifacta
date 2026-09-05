@@ -52,6 +52,90 @@ public class DocumentLimitsTests
     }
 
     [Fact]
+    public void Abandons_an_attachment_that_inflates_past_the_limit()
+    {
+        // 64 MB of zeros in about 64 KB of deflate. Checking the limit after decompressing would
+        // charge the whole 64 MB before refusing it, and the ratio scales as far as the sender
+        // likes — that is the entire trick of a compression bomb.
+        var pdf = PdfWithFlateAttachment(64 * 1024 * 1024);
+        Assert.True(pdf.Length < 200 * 1024, $"the bomb should be small on disk, was {pdf.Length:N0}");
+
+        var exception = Assert.Throws<UnsupportedDocumentException>(
+            () => InvoiceDocument.Load(new MemoryStream(pdf), new DocumentLimits { MaxAttachmentBytes = 1024 * 1024 }));
+
+        Assert.Contains("past the", exception.Message);
+        Assert.Contains("factur-x.xml", exception.Message);
+    }
+
+    [Fact]
+    public void Reads_a_compressed_attachment_that_fits()
+    {
+        var pdf = PdfWithFlateAttachment(0, Encoding.UTF8.GetBytes(Padded(4)));
+
+        var document = InvoiceDocument.Load(new MemoryStream(pdf));
+
+        Assert.Equal("factur-x.xml", document.EmbeddedFileName);
+        Assert.Equal(Detection.InvoiceSyntax.Ubl, document.Syntax);
+    }
+
+    /// <summary>A PDF whose only attachment is a Flate stream of <paramref name="zeros"/> bytes.</summary>
+    private static byte[] PdfWithFlateAttachment(int zeros, byte[]? content = null)
+    {
+        var payload = Deflate(content ?? new byte[zeros]);
+
+        var objects = new List<byte[]>
+        {
+            "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>"u8.ToArray(),
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"u8.ToArray(),
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>"u8.ToArray(),
+            "<< /Names [(factur-x.xml) 5 0 R] >>"u8.ToArray(),
+            "<< /Type /Filespec /F (factur-x.xml) /UF (factur-x.xml) /EF << /F 6 0 R >> >>"u8.ToArray(),
+        };
+
+        var pdf = new MemoryStream();
+        Append(pdf, "%PDF-1.7\n");
+
+        var offsets = new List<long>();
+        for (var index = 0; index < objects.Count; index++)
+        {
+            offsets.Add(pdf.Position);
+            Append(pdf, $"{index + 1} 0 obj\n");
+            pdf.Write(objects[index]);
+            Append(pdf, "\nendobj\n");
+        }
+
+        offsets.Add(pdf.Position);
+        Append(pdf, $"6 0 obj\n<< /Type /EmbeddedFile /Filter /FlateDecode /Length {payload.Length} >>\nstream\n");
+        pdf.Write(payload);
+        Append(pdf, "\nendstream\nendobj\n");
+
+        var startXref = pdf.Position;
+        Append(pdf, $"xref\n0 {objects.Count + 2}\n0000000000 65535 f \n");
+        foreach (var offset in offsets)
+        {
+            Append(pdf, $"{offset:D10} 00000 n \n");
+        }
+
+        Append(pdf, $"trailer\n<< /Size {objects.Count + 2} /Root 1 0 R >>\nstartxref\n{startXref}\n%%EOF\n");
+        return pdf.ToArray();
+    }
+
+    private static byte[] Deflate(byte[] content)
+    {
+        using var compressed = new MemoryStream();
+        using (var zlib = new System.IO.Compression.ZLibStream(
+                   compressed, System.IO.Compression.CompressionLevel.SmallestSize, leaveOpen: true))
+        {
+            zlib.Write(content);
+        }
+
+        return compressed.ToArray();
+    }
+
+    private static void Append(MemoryStream stream, string text) =>
+        stream.Write(Encoding.ASCII.GetBytes(text));
+
+    [Fact]
     public void The_name_tree_cap_is_configurable()
     {
         Assert.Equal(4096, DocumentLimits.Default.MaxPdfNameTreeNodes);

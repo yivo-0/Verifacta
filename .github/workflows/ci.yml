@@ -69,11 +69,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: corpus-reports
-          path: |
-            corpus/coverage.md
-            corpus/report.md
-            corpus/validation-report.md
-            corpus/pdf-report.md
+          # One set per target framework: the two runs used to collide writing a single path.
+          path: corpus/*.md
           if-no-files-found: warn
 
   # Verifacta runs the publishers' own artefacts, so it should agree with the tool the publishers

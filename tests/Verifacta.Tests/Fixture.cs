@@ -29,6 +29,20 @@ internal static class Corpus
     /// <summary>The corpus directory, found from the assembly upwards, or null if it is absent.</summary>
     internal static string? Root { get; } = Locate();
 
+    /// <summary>
+    /// Writes a corpus report, named for the framework that produced it. The suite runs on net8.0
+    /// and net10.0 at the same time, and two runs calling File.WriteAllText on one path collide
+    /// often enough to fail a build for no reason — which is exactly the kind of failure that
+    /// teaches people to re-run the build instead of reading it.
+    /// </summary>
+    internal static void WriteReport(string name, string content)
+    {
+        if (Root is null) return;
+
+        var moniker = $"net{Environment.Version.Major}.{Environment.Version.Minor}";
+        File.WriteAllText(Path.Combine(Root, $"{name}-{moniker}.md"), content);
+    }
+
     private static string? Locate()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

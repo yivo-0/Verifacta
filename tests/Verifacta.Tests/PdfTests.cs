@@ -128,7 +128,7 @@ public class PdfTests
             }
         }
 
-        File.WriteAllText(Path.Combine(Root, "pdf-report.md"), report.ToString());
+        Corpus.WriteReport("pdf-report", report.ToString());
     }
 
     private static string Summarise(string message)

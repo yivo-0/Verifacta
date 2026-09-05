@@ -179,7 +179,7 @@ public class CorpusValidationTests(ValidatorFixture fixture)
             detail.ForEach(line => report.AppendLine(line));
         }
 
-        File.WriteAllText(Path.Combine(Root, "validation-report.md"), report.ToString());
+        Corpus.WriteReport("validation-report", report.ToString());
     }
 
     private static IEnumerable<string> Files(string source)

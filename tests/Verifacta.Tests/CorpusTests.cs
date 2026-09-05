@@ -171,7 +171,7 @@ public class CorpusTests
         AppendList(report, "## Files with read findings", withFindings);
         AppendList(report, "## Files not readable", unreadable);
 
-        File.WriteAllText(Path.Combine(Root, "report.md"), report.ToString());
+        Corpus.WriteReport("report", report.ToString());
     }
 
     private static void AppendList(StringBuilder report, string title, List<string> items)

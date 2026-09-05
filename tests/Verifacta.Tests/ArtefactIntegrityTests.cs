@@ -12,7 +12,22 @@ public class ArtefactIntegrityTests(ValidatorFixture fixture) : IDisposable
 {
     private readonly string _root = Directory.CreateTempSubdirectory("verifacta-integrity").FullName;
 
-    public void Dispose() => Directory.Delete(_root, recursive: true);
+    /// <summary>
+    /// Best effort. A validator keeps the stylesheets it compiled open for as long as it lives, and
+    /// nothing here disposes the Saxon processor, so the copy is sometimes still in use when the
+    /// test ends. Failing the run over a temp directory would be reporting the cleanup, not the
+    /// test — and it did, intermittently, until this caught it.
+    /// </summary>
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(_root, recursive: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
 
     [Fact]
     public void Refuses_to_validate_against_an_altered_rule_artefact()
