@@ -193,8 +193,8 @@ wasn't trying to hurt me.
 and writing files specifically designed to break my own code: a self-referencing
 node, a two-node cycle, a node that is its own grandchild, a 6,000-node chain, and
 two compression bombs. All of them are in the test suite now. None of them would
-have appeared in any corpus of real invoices, which is exactly why the real
-corpus — 883 files, all passing — told me nothing about this.
+have appeared in any corpus of real invoices, which is exactly why 521 files of
+real corpus told me nothing about either bug.
 
 The library is [Verifacta](https://github.com/yivo-0/Verifacta), if you want to
 see the fixes in context. But the two mistakes are not specific to PDFs or to
