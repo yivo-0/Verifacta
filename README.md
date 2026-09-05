@@ -9,9 +9,14 @@ Every other way to validate a European e-invoice from .NET today needs a JVM sid
 process, or an upload to someone else's API. Verifacta runs the official Schematron in-process on
 pure managed .NET.
 
-```bash
-dotnet add package Verifacta
-```
+> **Not on NuGet yet** — the first package release is pending. Until then, clone and build:
+>
+> ```bash
+> git clone https://github.com/yivo-0/Verifacta && cd Verifacta
+> dotnet build && dotnet run --project src/Verifacta.Cli -- rules restore
+> ```
+>
+> The `verifacta` examples below then read as `dotnet run --project src/Verifacta.Cli -- …`.
 
 ```csharp
 using Verifacta;

@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
   workflow_dispatch:
 
@@ -35,8 +35,30 @@ jobs:
       - name: Fetch the official test corpora
         run: python tools/fetch-corpus.py
 
+      # Runs on net8.0 and net10.0, because the library ships both.
       - name: Test
         run: dotnet test --configuration Release --no-build
+
+      # The unit tests are not enough on their own: a rule pack added for rendering broke
+      # "validate <folder>" with an unhandled compiler error while every test stayed green.
+      # Nothing but running the CLI end to end catches that class of regression.
+      - name: Smoke test the command line
+        run: |
+          cli() { dotnet run --project src/Verifacta.Cli --configuration Release --no-build -- "$@"; }
+
+          # More than ten files, so the rule packs are compiled up front rather than lazily.
+          status=0
+          cli validate corpus/kosit-xrechnung --recursive --csv smoke.csv || status=$?
+          # 1 means invoices had findings, which is a normal outcome; 2 or above is a failure.
+          [ "$status" -le 1 ] || { echo "validate exited $status"; exit 1; }
+          [ "$(wc -l < smoke.csv)" -gt 1 ] || { echo "no CSV rows written"; exit 1; }
+
+          # Not corpus/facturx: it holds ZUGFeRD 1.x files that are rejected by design.
+          cli render corpus/peppol-bis --recursive --out smoke-html --lang en
+          [ -n "$(ls -A smoke-html)" ] || { echo "no HTML written"; exit 1; }
+
+          cli info corpus/peppol-bis --recursive --json > /dev/null
+          cli rules verify
 
       - name: Publish corpus reports
         if: always()

@@ -75,12 +75,14 @@ public sealed class ValidationResult
         RuleSet ruleSet,
         IReadOnlyList<string> rulePacks,
         IReadOnlyList<ValidationFinding> findings,
-        bool schemaValid)
+        bool schemaValid,
+        bool schemaChecked)
     {
         RuleSet = ruleSet;
         RulePacks = rulePacks;
         Findings = findings;
         SchemaValid = schemaValid;
+        SchemaChecked = schemaChecked;
     }
 
     public RuleSet RuleSet { get; }
@@ -92,10 +94,18 @@ public sealed class ValidationResult
     /// <summary>
     /// False when the document does not conform to its XML Schema. The business rules are not run
     /// in that case, so an empty rule-finding list does not mean the invoice is otherwise sound.
+    /// It is also true when the schema was never checked — see <see cref="SchemaChecked"/>.
     /// </summary>
     public bool SchemaValid { get; }
 
-    public bool IsValid => Errors.Count == 0;
+    /// <summary>
+    /// Whether the XML Schema was actually checked. False when the caller passed
+    /// validateSchema: false, which is the only case where <see cref="SchemaValid"/> means
+    /// "not checked" rather than "conformant".
+    /// </summary>
+    public bool SchemaChecked { get; }
+
+    public bool IsValid => !Findings.Any(finding => finding.Severity == ValidationSeverity.Error);
 
     public IReadOnlyList<ValidationFinding> Errors =>
         Findings.Where(finding => finding.Severity == ValidationSeverity.Error).ToList();

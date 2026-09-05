@@ -57,6 +57,12 @@ catch (RulePackException exception)
     Error(exception.Message);
     return ExitCode.Failed;
 }
+// A bad output path is a user mistake, not a defect: say what went wrong instead of a stack trace.
+catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+{
+    Error(exception.Message);
+    return ExitCode.Failed;
+}
 
 async Task<int> Rules(string? subcommand, bool force)
 {
@@ -162,6 +168,13 @@ int Render()
         : values.TryGetValue("-o", out var shortOutput) ? shortOutput
         : null;
 
+    if (files.Count > 1 && destination is not null && File.Exists(destination))
+    {
+        Error($"{files.Count} invoices cannot be rendered into the single file '{destination}'. " +
+              "Give a folder instead.");
+        return ExitCode.Usage;
+    }
+
     var renderer = new InvoiceRenderer();
     if (files.Count > 1) renderer.Warmup();
 
@@ -197,7 +210,9 @@ int Render()
             renderer.ToHtml(InvoiceDocument.Load(file), writer, language);
             Console.WriteLine($"  {target}");
         }
-        catch (Exception exception) when (exception is UnsupportedDocumentException or RenderingException)
+        // Reported per file rather than thrown: one unreadable invoice should not abandon the rest.
+        catch (Exception exception) when (exception is UnsupportedDocumentException or RenderingException
+                                              or IOException or UnauthorizedAccessException)
         {
             Error($"  {file}: {exception.Message}");
             failed = true;
@@ -212,6 +227,7 @@ int Info()
     var files = Batch.Expand(paths, flags.Contains("--recursive") || flags.Contains("-r"));
     var summaries = new List<object>();
     var asJson = flags.Contains("--json");
+    var failed = false;
 
     if (files.Count == 0)
     {
@@ -261,10 +277,13 @@ int Info()
             Console.WriteLine($"  buyer      {invoice.Buyer.Name}");
             Console.WriteLine($"  lines      {invoice.Lines.Count}");
         }
-        catch (UnsupportedDocumentException exception)
+        // Reported per file rather than returned on the first one: pointing info at a folder
+        // should describe everything it can read, the way validate and render do.
+        catch (Exception exception) when (exception is UnsupportedDocumentException
+                                             or IOException or UnauthorizedAccessException)
         {
             Error($"{file}: {exception.Message}");
-            return ExitCode.Failed;
+            failed = true;
         }
     }
 
@@ -273,7 +292,7 @@ int Info()
         Console.WriteLine(JsonSerializer.Serialize(summaries, JsonDefaults.Options));
     }
 
-    return ExitCode.Valid;
+    return failed ? ExitCode.Failed : ExitCode.Valid;
 }
 
 static void PrintText(Report report, bool showFile)
