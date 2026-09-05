@@ -76,13 +76,15 @@ public sealed class ValidationResult
         IReadOnlyList<string> rulePacks,
         IReadOnlyList<ValidationFinding> findings,
         bool schemaValid,
-        bool schemaChecked)
+        bool schemaChecked,
+        bool profileCovered)
     {
         RuleSet = ruleSet;
         RulePacks = rulePacks;
         Findings = findings;
         SchemaValid = schemaValid;
         SchemaChecked = schemaChecked;
+        ProfileCovered = profileCovered;
     }
 
     public RuleSet RuleSet { get; }
@@ -104,6 +106,14 @@ public sealed class ValidationResult
     /// "not checked" rather than "conformant".
     /// </summary>
     public bool SchemaChecked { get; }
+
+    /// <summary>
+    /// False when the document declares a specification with no rule set of its own here, so it was
+    /// judged against EN 16931 alone. The verdict on the core rules stands; the national or sector
+    /// rules the document claims to follow were never applied. Validate in strict mode to have that
+    /// reported as an error instead.
+    /// </summary>
+    public bool ProfileCovered { get; }
 
     public bool IsValid => !Findings.Any(finding => finding.Severity == ValidationSeverity.Error);
 

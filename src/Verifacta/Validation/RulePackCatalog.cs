@@ -242,6 +242,19 @@ public sealed class RulePackCatalog
         _ => RuleSet.En16931,
     };
 
+    /// <summary>
+    /// Whether the specification a document declares has a rule set of its own here. Anything else
+    /// falls back to EN 16931 — a sound verdict on the core rules, and no statement at all about the
+    /// national or sector rules the document says it follows. Factur-X is a fallback: its own
+    /// profile rules are not shipped.
+    /// </summary>
+    public static bool Covers(InvoiceProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+
+        return profile.Kind is ProfileKind.En16931 or ProfileKind.XRechnung or ProfileKind.PeppolBisBilling3;
+    }
+
     /// <summary>The schema a document of this shape is judged against, for labelling findings.</summary>
     internal static string SchemaName(InvoiceSyntax syntax, DocumentKind kind) => (syntax, kind) switch
     {

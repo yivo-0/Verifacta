@@ -44,7 +44,7 @@ internal static class Batch
     }
 
     internal static List<Report> Run(
-        InvoiceValidator validator, List<InvoiceFile> files, RuleSet? ruleSet, bool validateSchema)
+        InvoiceValidator validator, List<InvoiceFile> files, RuleSet? ruleSet, bool validateSchema, bool strict = false)
     {
         var reports = new ConcurrentBag<Report>();
 
@@ -52,29 +52,33 @@ internal static class Batch
         // worth spreading across cores; a single file is not.
         if (files.Count > 1)
         {
-            Parallel.ForEach(files, file => reports.Add(Validate(validator, file.FullPath, ruleSet, validateSchema)));
+            Parallel.ForEach(files, file =>
+                reports.Add(Validate(validator, file.FullPath, ruleSet, validateSchema, strict)));
         }
         else
         {
-            reports.Add(Validate(validator, files[0].FullPath, ruleSet, validateSchema));
+            reports.Add(Validate(validator, files[0].FullPath, ruleSet, validateSchema, strict));
         }
 
         return reports.OrderBy(report => report.File, StringComparer.Ordinal).ToList();
     }
 
     private static Report Validate(
-        InvoiceValidator validator, string file, RuleSet? ruleSet, bool validateSchema)
+        InvoiceValidator validator, string file, RuleSet? ruleSet, bool validateSchema, bool strict)
     {
         try
         {
             var document = InvoiceDocument.Load(file);
-            var result = validator.Validate(document, ruleSet, validateSchema);
+            var result = validator.Validate(document, ruleSet, validateSchema, strict);
 
             return new Report(
                 file,
                 result.IsValid ? "valid" : "invalid",
                 result.RuleSet.ToString(),
+                result.SchemaChecked,
                 result.SchemaValid,
+                result.ProfileCovered,
+                document.Profile.SpecificationIdentifier,
                 document.EmbeddedFileName,
                 result.Findings.Select(Finding.From).ToList(),
                 null);
@@ -85,13 +89,16 @@ internal static class Batch
         catch (Exception exception) when (exception is UnsupportedDocumentException or ValidationException
                                              or IOException or UnauthorizedAccessException)
         {
-            return new Report(file, "error", null, false, null, [], exception.Message);
+            return new Report(file, "error", null, false, false, false, null, null, [], exception.Message);
         }
     }
 
     internal static void WriteCsv(TextWriter writer, IEnumerable<Report> reports)
     {
-        writer.WriteLine("file,status,ruleSet,schemaValid,errors,warnings,rules,detail");
+        // schemaChecked and profileCovered are what turn "valid" into a statement you can act on:
+        // valid against what, and was the schema even looked at.
+        writer.WriteLine(
+            "file,status,ruleSet,profile,profileCovered,schemaChecked,schemaValid,errors,warnings,rules,detail");
 
         foreach (var report in reports)
         {
@@ -106,6 +113,9 @@ internal static class Batch
                 Escape(report.File),
                 report.Status,
                 report.RuleSet ?? string.Empty,
+                Escape(report.Profile ?? string.Empty),
+                report.ProfileCovered.ToString(CultureInfo.InvariantCulture),
+                report.SchemaChecked.ToString(CultureInfo.InvariantCulture),
                 report.SchemaValid.ToString(CultureInfo.InvariantCulture),
                 errors.ToString(CultureInfo.InvariantCulture),
                 warnings.ToString(CultureInfo.InvariantCulture),
@@ -129,6 +139,18 @@ internal static class Batch
         if (schemaFailures > 0)
         {
             writer.WriteLine($"{schemaFailures} did not conform to their XML Schema, so business rules were not run.");
+        }
+
+        var uncovered = reports.Count(report => report.Status != "error" && !report.ProfileCovered);
+        if (uncovered > 0)
+        {
+            writer.WriteLine($"{uncovered} declared a specification with no rule set here and were judged " +
+                             "against EN 16931 alone. Use --strict to treat that as a failure.");
+        }
+
+        if (reports.Any(report => report.Status != "error" && !report.SchemaChecked))
+        {
+            writer.WriteLine("XML Schema was not checked, so \"valid\" covers the business rules only.");
         }
 
         var byRule = reports
@@ -167,7 +189,10 @@ internal sealed record Report(
     string File,
     string Status,
     string? RuleSet,
+    bool SchemaChecked,
     bool SchemaValid,
+    bool ProfileCovered,
+    string? Profile,
     string? Attachment,
     List<Finding> Findings,
     string? Error);

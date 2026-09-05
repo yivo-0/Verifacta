@@ -130,7 +130,21 @@ across cores; 521 files take about 12 seconds including the one-off rule-pack co
 to stdout for a single invoice or beside each file for a folder. `--lang en` switches the labels.
 
 Options: `--rules en16931|peppol|xrechnung`, `--recursive`, `--csv <file>`, `--json`, `--no-schema`,
-`-o|--out <file|folder>`, `--lang de|en`.
+`--strict`, `-o|--out <file|folder>`, `--lang de|en`.
+
+### What "valid" means
+
+A verdict is only useful if it says valid against what, so every result carries the rule set, the
+pack versions behind it, whether the XML Schema was actually checked (`SchemaChecked`), and whether
+the specification the document declares has a rule set here at all (`ProfileCovered`). All four
+reach the JSON and CSV output.
+
+A document declaring a specification Verifacta has no rules for — a national CIUS it does not ship,
+or Factur-X's own profile rules — is judged against EN 16931 and says so. `--strict` turns that into
+a failure instead.
+
+Validating a hybrid PDF validates **the XML inside it**. Verifacta says nothing about whether the
+PDF itself conforms to PDF/A-3 or carries the XMP metadata Factur-X requires.
 Exit codes: `0` valid, `1` validation errors, `2` a file could not be processed, `64` usage error.
 
 ## Verified against

@@ -78,31 +78,61 @@ internal static class PdfAttachments
         }
     }
 
-    /// <summary>A PDF name tree is either a flat /Names array or an inner node with /Kids.</summary>
-    private static void CollectNameTree(PdfDictionary node, Dictionary<string, byte[]> attachments)
+    /// <summary>
+    /// A real embedded-files tree has a handful of nodes. Anything past this is not a hybrid
+    /// invoice, and continuing to walk it only serves whoever built the file.
+    /// </summary>
+    private const int MaxNameTreeNodes = 4096;
+
+    /// <summary>
+    /// A PDF name tree is either a flat /Names array or an inner node with /Kids.
+    /// Walked iteratively, and never through the same node twice: the file comes from outside, and
+    /// a /Kids entry pointing back at an ancestor recursed until the process died on a stack
+    /// overflow — which no caller can catch, because .NET does not let one.
+    /// </summary>
+    private static void CollectNameTree(PdfDictionary root, Dictionary<string, byte[]> attachments)
     {
-        var names = node.Elements.GetArray("/Names");
-        if (names is not null)
+        var pending = new Stack<PdfDictionary>();
+        var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        var visited = 0;
+
+        pending.Push(root);
+
+        while (pending.Count > 0)
         {
-            for (var index = 0; index + 1 < names.Elements.Count; index += 2)
+            if (++visited > MaxNameTreeNodes)
             {
-                var name = names.Elements[index] as PdfString ?? Resolve<PdfString>(names.Elements[index]);
-                var specification = names.Elements.GetDictionary(index + 1)
-                    ?? Resolve<PdfDictionary>(names.Elements[index + 1]);
-
-                if (name is null || specification is null) continue;
-
-                Add(name.Value, specification, attachments);
+                throw new UnsupportedDocumentException(
+                    $"The PDF's embedded-file tree has more than {MaxNameTreeNodes} nodes, " +
+                    "which no hybrid invoice does.");
             }
-        }
 
-        var kids = node.Elements.GetArray("/Kids");
-        if (kids is null) return;
+            var node = pending.Pop();
+            if (!seen.Add(node)) continue;
 
-        for (var index = 0; index < kids.Elements.Count; index++)
-        {
-            var kid = kids.Elements.GetDictionary(index) ?? Resolve<PdfDictionary>(kids.Elements[index]);
-            if (kid is not null) CollectNameTree(kid, attachments);
+            var names = node.Elements.GetArray("/Names");
+            if (names is not null)
+            {
+                for (var index = 0; index + 1 < names.Elements.Count; index += 2)
+                {
+                    var name = names.Elements[index] as PdfString ?? Resolve<PdfString>(names.Elements[index]);
+                    var specification = names.Elements.GetDictionary(index + 1)
+                        ?? Resolve<PdfDictionary>(names.Elements[index + 1]);
+
+                    if (name is null || specification is null) continue;
+
+                    Add(name.Value, specification, attachments);
+                }
+            }
+
+            var kids = node.Elements.GetArray("/Kids");
+            if (kids is null) continue;
+
+            for (var index = 0; index < kids.Elements.Count; index++)
+            {
+                var kid = kids.Elements.GetDictionary(index) ?? Resolve<PdfDictionary>(kids.Elements[index]);
+                if (kid is not null) pending.Push(kid);
+            }
         }
     }
 
