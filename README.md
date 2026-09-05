@@ -5,9 +5,11 @@
 Read and validate EN 16931 electronic invoices in .NET — **no Java, no Node.js, no native
 dependencies, and nothing leaves your server.**
 
-Every other way to validate a European e-invoice from .NET today needs a JVM sidecar, a Node
-process, or an upload to someone else's API. Verifacta runs the official Schematron in-process on
-pure managed .NET.
+Verifacta runs the publishers' **own compiled Schematron** in-process: the same artefacts the German
+reference validator executes, fetched from their pinned upstream releases and checked against a
+recorded SHA-256. Not a reimplementation of the rules, and not a copy vendored into this repository.
+When a verdict here disagrees with KoSIT's, that is a bug in Verifacta — and the CEN rule suite is
+replayed test by test to keep it that way.
 
 > **Not on NuGet yet** — the first package release is pending. Until then, clone and build:
 >
