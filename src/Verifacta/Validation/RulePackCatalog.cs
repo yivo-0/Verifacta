@@ -213,8 +213,6 @@ public sealed class RulePackCatalog
         _ => RuleSet.En16931,
     };
 
-    internal string SchemaDirectory => Pack("schemas").Directory;
-
     /// <summary>The schema a document of this shape is judged against, for labelling findings.</summary>
     internal static string SchemaName(InvoiceSyntax syntax, DocumentKind kind) => (syntax, kind) switch
     {
@@ -243,6 +241,33 @@ public sealed class RulePackCatalog
 
         var pack = Pack(packId);
         return files.Select(pack.PathTo).ToList();
+    }
+
+    /// <summary>
+    /// Every artefact <see cref="Layers"/> can return, for warming the compiler. The catalog also
+    /// carries the visualisation stylesheets, and those must not be compiled here: they include
+    /// imported modules that do not compile on their own.
+    /// </summary>
+    internal IReadOnlyList<string> ValidationLayers()
+    {
+        var layers = new List<string>();
+
+        foreach (var ruleSet in Enum.GetValues<RuleSet>())
+        {
+            foreach (var syntax in Enum.GetValues<InvoiceSyntax>())
+            {
+                try
+                {
+                    layers.AddRange(Layers(ruleSet, syntax));
+                }
+                catch (RulePackException)
+                {
+                    // Not every rule set covers every syntax; Peppol BIS is defined for UBL only.
+                }
+            }
+        }
+
+        return layers.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     internal string Describe(RuleSet ruleSet, InvoiceSyntax syntax)

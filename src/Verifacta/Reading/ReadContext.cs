@@ -37,7 +37,11 @@ internal sealed class ReadContext
 
         if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out var fallback))
         {
-            return DateOnly.FromDateTime(fallback);
+            // Read, but reported: the specification requires yyyy-MM-dd, so anything else is an
+            // interpretation of the document rather than the document itself.
+            var read = DateOnly.FromDateTime(fallback);
+            Add(element!, ReadFindingKind.UnexpectedValue, $"'{raw}' is not an ISO date; read as {read:yyyy-MM-dd}.");
+            return read;
         }
 
         Add(element!, ReadFindingKind.UnparsableDate, $"'{raw}' is not a valid date.");
@@ -67,7 +71,10 @@ internal sealed class ReadContext
 
         if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out var fallback))
         {
-            return DateOnly.FromDateTime(fallback);
+            var read = DateOnly.FromDateTime(fallback);
+            Add(target, ReadFindingKind.UnexpectedValue,
+                $"'{raw}' is not a date in format '{format ?? "102"}'; read as {read:yyyy-MM-dd}.");
+            return read;
         }
 
         Add(target, ReadFindingKind.UnparsableDate, $"'{raw}' is not a valid date" + (format is null ? "." : $" for format '{format}'."));

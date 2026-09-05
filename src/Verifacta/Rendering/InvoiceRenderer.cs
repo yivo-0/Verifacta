@@ -21,7 +21,7 @@ public sealed class RenderingException : Exception
 public sealed class InvoiceRenderer
 {
     private readonly Processor _processor = new();
-    private readonly ConcurrentDictionary<string, XsltExecutable> _compiled = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Lazy<XsltExecutable>> _compiled = new(StringComparer.OrdinalIgnoreCase);
     private readonly RulePackCatalog _catalog;
 
     public InvoiceRenderer(RulePackCatalog? catalog = null) => _catalog = catalog ?? RulePackCatalog.Load();
@@ -124,13 +124,17 @@ public sealed class InvoiceRenderer
         }
     }
 
-    private XsltExecutable Compiled(string stylesheet) => _compiled.GetOrAdd(stylesheet, path =>
-    {
-        if (!File.Exists(path))
+    // Lazy, not a bare factory: GetOrAdd does not lock, so a cold cache rendering a folder in
+    // parallel would otherwise have every thread compile the same stylesheet at once.
+    private XsltExecutable Compiled(string stylesheet) => _compiled.GetOrAdd(
+        stylesheet,
+        path => new Lazy<XsltExecutable>(() =>
         {
-            throw new RulePackException(RulePackCatalog.MissingArtefact(path));
-        }
+            if (!File.Exists(path))
+            {
+                throw new RulePackException(RulePackCatalog.MissingArtefact(path));
+            }
 
-        return _processor.NewXsltCompiler().Compile(new Uri(path));
-    });
+            return _processor.NewXsltCompiler().Compile(new Uri(path));
+        })).Value;
 }

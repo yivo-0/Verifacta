@@ -71,7 +71,10 @@ internal static class Batch
                 result.Findings.Select(Finding.From).ToList(),
                 null);
         }
-        catch (Exception exception) when (exception is UnsupportedDocumentException or ValidationException)
+        // Reported as a row rather than thrown: one unreadable file in an archive of thousands
+        // should not abandon the run, and Parallel.ForEach would surface it as an AggregateException.
+        catch (Exception exception) when (exception is UnsupportedDocumentException or ValidationException
+                                             or IOException or UnauthorizedAccessException)
         {
             return new Report(file, "error", null, false, null, [], exception.Message);
         }
