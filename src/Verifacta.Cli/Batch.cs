@@ -12,11 +12,15 @@ internal static class Batch
 {
     private static readonly string[] Extensions = [".xml", ".pdf"];
 
-    /// <summary>Expands directories to the invoice files inside them; plain paths pass through.</summary>
-    internal static List<string> Expand(IEnumerable<string> paths, bool recursive)
+    /// <summary>
+    /// Expands directories to the invoice files inside them; plain paths pass through. The path each
+    /// file had relative to the folder it was found in is kept, so a command writing output per
+    /// invoice can reproduce the folder structure instead of flattening it.
+    /// </summary>
+    internal static List<InvoiceFile> Expand(IEnumerable<string> paths, bool recursive)
     {
         var search = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        var files = new List<string>();
+        var files = new List<InvoiceFile>();
 
         foreach (var path in paths)
         {
@@ -24,19 +28,23 @@ internal static class Batch
             {
                 files.AddRange(Directory
                     .EnumerateFiles(path, "*", search)
-                    .Where(file => Extensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase)));
+                    .Where(file => Extensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
+                    .Select(file => new InvoiceFile(file, Path.GetRelativePath(path, file))));
             }
             else
             {
-                files.Add(path);
+                files.Add(new InvoiceFile(path, Path.GetFileName(path)));
             }
         }
 
-        return files.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToList();
+        return files
+            .DistinctBy(file => file.FullPath, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(file => file.FullPath, StringComparer.Ordinal)
+            .ToList();
     }
 
     internal static List<Report> Run(
-        InvoiceValidator validator, List<string> files, RuleSet? ruleSet, bool validateSchema)
+        InvoiceValidator validator, List<InvoiceFile> files, RuleSet? ruleSet, bool validateSchema)
     {
         var reports = new ConcurrentBag<Report>();
 
@@ -44,11 +52,11 @@ internal static class Batch
         // worth spreading across cores; a single file is not.
         if (files.Count > 1)
         {
-            Parallel.ForEach(files, file => reports.Add(Validate(validator, file, ruleSet, validateSchema)));
+            Parallel.ForEach(files, file => reports.Add(Validate(validator, file.FullPath, ruleSet, validateSchema)));
         }
         else
         {
-            reports.Add(Validate(validator, files[0], ruleSet, validateSchema));
+            reports.Add(Validate(validator, files[0].FullPath, ruleSet, validateSchema));
         }
 
         return reports.OrderBy(report => report.File, StringComparer.Ordinal).ToList();
@@ -73,6 +81,7 @@ internal static class Batch
         }
         // Reported as a row rather than thrown: one unreadable file in an archive of thousands
         // should not abandon the run, and Parallel.ForEach would surface it as an AggregateException.
+        // Malformed XML arrives as UnsupportedDocumentException, wrapped by InvoiceDocument.
         catch (Exception exception) when (exception is UnsupportedDocumentException or ValidationException
                                              or IOException or UnauthorizedAccessException)
         {
@@ -150,6 +159,9 @@ internal static class Batch
         return '"' + value.Replace("\"", "\"\"") + '"';
     }
 }
+
+/// <summary>An invoice to process, and where it sat relative to the folder it was found in.</summary>
+internal sealed record InvoiceFile(string FullPath, string RelativePath);
 
 internal sealed record Report(
     string File,

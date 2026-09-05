@@ -83,8 +83,10 @@ versions and regenerating the manifest; consumers never need it.
 | `xrechnung` | 3.0.2 | itplr-kosit/validator-configuration-xrechnung | Apache-2.0 |
 | `visualization` | 3.0.2 | itplr-kosit/xrechnung-visualization | Apache-2.0 |
 
-`src/Verifacta/RulePacks.json` records the release tag, licence and SHA-256 of every artefact.
-`RulePackCatalog.VerifyIntegrity()` checks them before use.
+`src/Verifacta/RulePacks.json` records the release tag, licence and SHA-256 of every artefact. A pack
+is checked against it the first time it is used in a process, so an artefact that has been altered
+on disk stops validation rather than quietly changing the verdict. `verifacta rules verify` and
+`RulePackCatalog.VerifyIntegrity()` check everything on demand.
 
 ### Staying current
 

@@ -184,37 +184,60 @@ int Render()
     {
         try
         {
-            Console.Out.Write(renderer.ToHtml(InvoiceDocument.Load(files[0]), language));
+            Console.Out.Write(renderer.ToHtml(InvoiceDocument.Load(files[0].FullPath), language));
             return ExitCode.Valid;
         }
         catch (Exception exception) when (exception is UnsupportedDocumentException or RenderingException)
         {
-            Error($"{files[0]}: {exception.Message}");
+            Error($"{files[0].FullPath}: {exception.Message}");
             return ExitCode.Failed;
         }
     }
 
-    var failed = false;
+    var namedFile = files.Count == 1 && destination is not null && !Directory.Exists(destination);
+    var sources = files.Select(file => Path.GetFullPath(file.FullPath)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var targets = new Dictionary<string, InvoiceFile>(StringComparer.OrdinalIgnoreCase);
 
+    // Every destination is worked out and checked before anything is written, so a run that would
+    // destroy an invoice or drop one on top of another fails having touched nothing.
     foreach (var file in files)
     {
-        var target = files.Count == 1 && destination is not null && !Directory.Exists(destination)
-            ? destination
-            : Path.Combine(destination ?? Path.GetDirectoryName(file) ?? ".",
-                Path.GetFileNameWithoutExtension(file) + ".html");
+        var target = Path.GetFullPath(namedFile
+            ? destination!
+            : destination is null
+                ? Path.ChangeExtension(file.FullPath, ".html")
+                : Path.Combine(destination, Path.ChangeExtension(file.RelativePath, ".html")));
 
+        if (sources.Contains(target))
+        {
+            Error($"'{target}' is one of the invoices being rendered. Choose a different destination.");
+            return ExitCode.Usage;
+        }
+
+        if (targets.TryGetValue(target, out var claimed))
+        {
+            Error($"'{claimed.FullPath}' and '{file.FullPath}' would both be written to '{target}'. " +
+                  "Render the folders separately, or use --out with the folder they share.");
+            return ExitCode.Usage;
+        }
+
+        targets[target] = file;
+    }
+
+    var failed = false;
+
+    foreach (var (target, file) in targets.OrderBy(entry => entry.Value.FullPath, StringComparer.Ordinal))
+    {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(target))!);
-            using var writer = new StreamWriter(target);
-            renderer.ToHtml(InvoiceDocument.Load(file), writer, language);
+            WriteAtomically(target, writer => renderer.ToHtml(InvoiceDocument.Load(file.FullPath), writer, language));
             Console.WriteLine($"  {target}");
         }
         // Reported per file rather than thrown: one unreadable invoice should not abandon the rest.
         catch (Exception exception) when (exception is UnsupportedDocumentException or RenderingException
                                               or IOException or UnauthorizedAccessException)
         {
-            Error($"  {file}: {exception.Message}");
+            Error($"  {file.FullPath}: {exception.Message}");
             failed = true;
         }
     }
@@ -235,8 +258,10 @@ int Info()
         return ExitCode.Usage;
     }
 
-    foreach (var file in files)
+    foreach (var invoiceFile in files)
     {
+        var file = invoiceFile.FullPath;
+
         try
         {
             var document = InvoiceDocument.Load(file);
@@ -331,6 +356,40 @@ static int Unknown(string command)
 }
 
 static void Error(string message) => Console.Error.WriteLine(message);
+
+/// <summary>
+/// Renders to a temporary file in the destination folder and moves it into place, so a document
+/// that fails halfway through leaves whatever was already there untouched rather than a truncated
+/// page. The move is what makes the result appear all at once.
+/// </summary>
+static void WriteAtomically(string target, Action<TextWriter> render)
+{
+    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+    var temporary = target + ".partial";
+
+    try
+    {
+        using (var writer = new StreamWriter(temporary))
+        {
+            render(writer);
+        }
+
+        File.Move(temporary, target, overwrite: true);
+    }
+    catch
+    {
+        try
+        {
+            File.Delete(temporary);
+        }
+        catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
+        {
+            // The original failure is the one worth reporting.
+        }
+
+        throw;
+    }
+}
 
 RuleSet? RuleSet() => values.TryGetValue("--rules", out var value)
     ? value.ToLowerInvariant() switch

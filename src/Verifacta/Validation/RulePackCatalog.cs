@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -77,6 +78,7 @@ public sealed class RulePackCatalog
     private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly Dictionary<string, RulePack> _packs;
+    private readonly ConcurrentDictionary<string, bool> _verified = new(StringComparer.OrdinalIgnoreCase);
 
     private RulePackCatalog(string root, IEnumerable<RulePack> packs)
     {
@@ -126,19 +128,44 @@ public sealed class RulePackCatalog
     {
         foreach (var pack in _packs.Values)
         {
-            foreach (var (name, expected) in pack.Files)
-            {
-                var path = pack.PathTo(name);
-                if (!File.Exists(path))
-                {
-                    throw new RulePackException($"{pack} is missing '{name}'. {RestoreHint}");
-                }
+            Verify(pack);
+        }
+    }
 
-                if (!Matches(path, expected.Sha256))
-                {
-                    throw new RulePackException(
-                        $"{pack} artefact '{name}' does not match the manifest hash. {RestoreHint}");
-                }
+    /// <summary>
+    /// The pack, checked against the manifest the first time it is used in this process. Compiling
+    /// an artefact that has been altered would produce verdicts that are not the publisher's, which
+    /// is the one thing this library exists to guarantee, so the check is not opt-in.
+    /// </summary>
+    internal RulePack VerifiedPack(string id)
+    {
+        var pack = Pack(id);
+
+        // Recorded only once it has passed, so a pack repaired by a restore in the same process is
+        // not held against an earlier failure. Verifying twice under contention is harmless.
+        if (!_verified.ContainsKey(id))
+        {
+            Verify(pack);
+            _verified[id] = true;
+        }
+
+        return pack;
+    }
+
+    private static void Verify(RulePack pack)
+    {
+        foreach (var (name, expected) in pack.Files)
+        {
+            var path = pack.PathTo(name);
+            if (!File.Exists(path))
+            {
+                throw new RulePackException($"{pack} is missing '{name}'. {RestoreHint}");
+            }
+
+            if (!Matches(path, expected.Sha256))
+            {
+                throw new RulePackException(
+                    $"{pack} artefact '{name}' does not match the manifest hash. {RestoreHint}");
             }
         }
     }
@@ -247,7 +274,7 @@ public sealed class RulePackCatalog
             _ => throw new RulePackException($"No rule pack for {ruleSet} in {syntax} syntax."),
         };
 
-        return (Pack(packId), files);
+        return (VerifiedPack(packId), files);
     }
 
     /// <summary>
