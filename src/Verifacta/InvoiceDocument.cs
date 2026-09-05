@@ -86,13 +86,30 @@ public sealed class InvoiceDocument
     {
         using var textReader = new StringReader(xml);
         using var reader = XmlReader.Create(textReader, ReaderSettings);
-        return Create(XDocument.Load(reader, LoadOptions.SetLineInfo), null);
+        return Create(LoadXml(reader), null);
     }
 
     private static XDocument ReadXml(Stream stream)
     {
         using var reader = XmlReader.Create(stream, ReaderSettings);
-        return XDocument.Load(reader, LoadOptions.SetLineInfo);
+        return LoadXml(reader);
+    }
+
+    /// <summary>
+    /// Malformed XML is the same kind of problem as a root element we do not recognise: the file
+    /// cannot be used. Callers get one exception type for that, rather than XmlException from a
+    /// truncated file and UnsupportedDocumentException from the next one along.
+    /// </summary>
+    private static XDocument LoadXml(XmlReader reader)
+    {
+        try
+        {
+            return XDocument.Load(reader, LoadOptions.SetLineInfo);
+        }
+        catch (XmlException exception)
+        {
+            throw new UnsupportedDocumentException($"The XML could not be parsed: {exception.Message}");
+        }
     }
 
     public ReadResult Read() => Syntax switch

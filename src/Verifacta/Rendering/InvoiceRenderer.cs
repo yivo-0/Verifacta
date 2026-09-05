@@ -43,7 +43,7 @@ public sealed class InvoiceRenderer
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(writer);
 
-        var pack = _catalog.Pack("visualization");
+        var pack = _catalog.VerifiedPack("visualization");
         var input = _processor.NewDocumentBuilder().Build(document.Xml.CreateReader());
 
         // Two steps, as the publisher specifies: the syntax is first mapped to the intermediate
@@ -55,7 +55,7 @@ public sealed class InvoiceRenderer
     /// <summary>Compiles the stylesheets up front so the first render is not the one that pays.</summary>
     public void Warmup()
     {
-        var pack = _catalog.Pack("visualization");
+        var pack = _catalog.VerifiedPack("visualization");
 
         // Only the entry points. The pack also carries imported modules, CSS and script, none of
         // which compile on their own -- xr-content.xsl alone fails on undeclared variables.

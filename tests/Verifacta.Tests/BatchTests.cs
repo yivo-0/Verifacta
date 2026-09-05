@@ -22,7 +22,7 @@ public class BatchTests : IDisposable
 
         var files = Batch.Expand([_root], recursive: false);
 
-        Assert.Equal(["a.xml", "b.pdf"], files.Select(Path.GetFileName));
+        Assert.Equal(["a.xml", "b.pdf"], files.Select(file => Path.GetFileName(file.FullPath)));
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public class BatchTests : IDisposable
     {
         var path = Path.Combine(_root, "missing.xml");
 
-        Assert.Equal([path], Batch.Expand([path], recursive: false));
+        Assert.Equal([path], Batch.Expand([path], recursive: false).Select(file => file.FullPath));
     }
 
     [Fact]
@@ -60,6 +60,19 @@ public class BatchTests : IDisposable
         var path = Path.Combine(_root, "a.xml");
 
         Assert.Single(Batch.Expand([_root, path], recursive: false));
+    }
+
+    [Fact]
+    public void Keeps_the_path_each_file_had_inside_its_folder()
+    {
+        Touch("customer-a/001.xml");
+        Touch("customer-b/001.xml");
+
+        var files = Batch.Expand([_root], recursive: true);
+
+        Assert.Equal(
+            [Path.Combine("customer-a", "001.xml"), Path.Combine("customer-b", "001.xml")],
+            files.Select(file => file.RelativePath));
     }
 
     [Fact]

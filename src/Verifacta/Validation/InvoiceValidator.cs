@@ -39,7 +39,7 @@ public sealed class InvoiceValidator
         {
             var schemaFindings = _schema.Validate(
                 document.Xml,
-                _catalog.Pack("schemas"),
+                _catalog.VerifiedPack("schemas"),
                 RulePackCatalog.SchemaName(document.Syntax, document.Kind));
 
             findings.AddRange(schemaFindings);
