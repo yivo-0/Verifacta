@@ -46,6 +46,12 @@ jobs:
       # The unit tests are not enough on their own: a rule pack added for rendering broke
       # "validate <folder>" with an unhandled compiler error while every test stayed green.
       # Nothing but running the CLI end to end catches that class of regression.
+      # Packing is not the same as being usable. This builds and runs samples/Quickstart against
+      # the packed .nupkg from a clean directory with its own package cache, so a file left out of
+      # the package fails here rather than in someone else's first five minutes.
+      - name: Verify the package from a clean directory
+        run: python tools/verify-package.py
+
       - name: Smoke test the command line
         run: |
           cli() { dotnet run --project src/Verifacta.Cli --configuration Release --no-build -- "$@"; }
@@ -69,11 +75,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: corpus-reports
-          path: |
-            corpus/coverage.md
-            corpus/report.md
-            corpus/validation-report.md
-            corpus/pdf-report.md
+          # One set per target framework: the two runs used to collide writing a single path.
+          path: corpus/*.md
           if-no-files-found: warn
 
   # Verifacta runs the publishers' own artefacts, so it should agree with the tool the publishers

@@ -1,0 +1,12 @@
+<Project>
+
+  <!--
+    Deliberately empty, and deliberately here: it stops the repository root Directory.Build.props
+    reaching the sample. The sample is a consumer of the package, and a consumer does not inherit
+    our version numbers, package metadata or signing settings.
+  -->
+  <PropertyGroup>
+    <VerifactaVersion Condition="'$(VerifactaVersion)' == ''">1.0.0-preview.1</VerifactaVersion>
+  </PropertyGroup>
+
+</Project>

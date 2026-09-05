@@ -90,7 +90,7 @@ public class CorpusPresenceTests(ValidatorFixture fixture)
             report.AppendLine($"| `{name}` | {count} | {minimum} | {(count >= minimum ? "ok" : "MISSING")} |");
         }
 
-        File.WriteAllText(Path.Combine(Corpus.Root, "coverage.md"), report.ToString());
+        Corpus.WriteReport("coverage", report.ToString());
     }
 
     private static int Count(string directory) =>

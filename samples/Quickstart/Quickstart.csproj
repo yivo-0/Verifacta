@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Deliberately a package reference, not a project reference: this sample is what proves the
+      published package works, and a project reference would prove only that the source compiles.
+      tools/verify-package.py packs, then builds and runs this against the resulting .nupkg.
+    -->
+    <PackageReference Include="Verifacta" Version="$(VerifactaVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="invoice.xml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

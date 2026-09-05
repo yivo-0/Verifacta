@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.Advanced;
 using PdfSharp.Pdf.IO;
@@ -164,20 +165,95 @@ internal static class PdfAttachments
 
         var files = specification.Elements.GetDictionary("/EF");
         var content = files?.Elements.GetDictionary("/F") ?? files?.Elements.GetDictionary("/UF");
-        var bytes = content?.Stream?.UnfilteredValue;
+        var bytes = Content(content, fileName, limits);
 
-        if (bytes is not { Length: > 0 }) return;
-
-        if (bytes.LongLength > limits.MaxAttachmentBytes)
+        if (bytes is { Length: > 0 })
         {
-            throw new UnsupportedDocumentException(
-                $"The attachment '{fileName}' is {bytes.LongLength:N0} bytes, over the " +
-                $"{limits.MaxAttachmentBytes:N0} byte limit. Raise DocumentLimits.MaxAttachmentBytes " +
-                "if this is genuinely an invoice.");
+            attachments[fileName] = bytes;
+        }
+    }
+
+    /// <summary>
+    /// The attachment's bytes, decompressed no further than the limit allows.
+    /// </summary>
+    /// <remarks>
+    /// PDFsharp's UnfilteredValue hands back the whole decompressed attachment, so checking the
+    /// limit afterwards charges the memory before refusing it: 261 KB of deflate is 256 MB of
+    /// array, and a 2.5 MB file reaches the point where .NET refuses the allocation for us. Flate
+    /// is inflated here instead, a block at a time, and abandoned the moment it goes over.
+    /// </remarks>
+    private static byte[]? Content(PdfDictionary? content, string fileName, DocumentLimits limits)
+    {
+        if (content?.Stream is not { } stream) return null;
+
+        var bytes = IsPlainFlate(content)
+            ? Inflate(stream.Value, fileName, limits)
+            : stream.UnfilteredValue;
+
+        if (bytes is not null && bytes.LongLength > limits.MaxAttachmentBytes)
+        {
+            throw TooLarge(fileName, bytes.LongLength, limits);
         }
 
-        attachments[fileName] = bytes;
+        return bytes;
     }
+
+    /// <summary>
+    /// Flate with no decode parameters, which is what every hybrid invoice in the corpus uses.
+    /// Anything else — a predictor, a filter chain, an unusual filter — goes through PDFsharp,
+    /// because guessing at it wrongly would lose a readable invoice to save memory.
+    /// </summary>
+    private static bool IsPlainFlate(PdfDictionary content) =>
+        content.Elements.GetName("/Filter") == "/FlateDecode" &&
+        !content.Elements.ContainsKey("/DecodeParms") &&
+        !content.Elements.ContainsKey("/DP");
+
+    private static byte[] Inflate(byte[] raw, string fileName, DocumentLimits limits)
+    {
+        foreach (var zlib in new[] { true, false })
+        {
+            try
+            {
+                using var source = new MemoryStream(raw);
+                using Stream inflater = zlib
+                    ? new ZLibStream(source, CompressionMode.Decompress)
+                    : new DeflateStream(source, CompressionMode.Decompress);
+
+                return ReadBounded(inflater, fileName, limits);
+            }
+            catch (InvalidDataException) when (zlib)
+            {
+                // A few producers write raw deflate where the specification says zlib.
+            }
+        }
+
+        throw new UnsupportedDocumentException($"The attachment '{fileName}' is not readable Flate data.");
+    }
+
+    private static byte[] ReadBounded(Stream source, string fileName, DocumentLimits limits)
+    {
+        using var buffer = new MemoryStream();
+        var chunk = new byte[81920];
+        int read;
+
+        while ((read = source.Read(chunk, 0, chunk.Length)) > 0)
+        {
+            if (buffer.Length + read > limits.MaxAttachmentBytes)
+            {
+                throw TooLarge(fileName, buffer.Length + read, limits, atLeast: true);
+            }
+
+            buffer.Write(chunk, 0, read);
+        }
+
+        return buffer.ToArray();
+    }
+
+    private static UnsupportedDocumentException TooLarge(
+        string fileName, long size, DocumentLimits limits, bool atLeast = false) =>
+        new($"The attachment '{fileName}' is {(atLeast ? "over " : string.Empty)}{size:N0} bytes, " +
+            $"past the {limits.MaxAttachmentBytes:N0} byte limit. " +
+            "Raise DocumentLimits.MaxAttachmentBytes if this is genuinely an invoice.");
 
     private static string? Clean(string? value)
     {

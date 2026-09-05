@@ -11,7 +11,7 @@ recorded SHA-256. Not a reimplementation of the rules, and not a copy vendored i
 When a verdict here disagrees with KoSIT's, that is a bug in Verifacta — and the CEN rule suite is
 replayed test by test to keep it that way.
 
-> **Not on NuGet yet** — the first package release is pending. Until then, clone and build:
+> **Not on NuGet yet** — `1.0.0-preview.1` is pending. Until then, clone and build:
 >
 > ```bash
 > git clone https://github.com/yivo-0/Verifacta && cd Verifacta
@@ -19,6 +19,12 @@ replayed test by test to keep it that way.
 > ```
 >
 > The `verifacta` examples below then read as `dotnet run --project src/Verifacta.Cli -- …`.
+
+[**samples/Quickstart**](samples/Quickstart) is the whole thing end to end — restore, load, validate,
+read the findings — in fifty lines, plus a [Dockerfile](samples/Quickstart/Dockerfile) that bakes the
+rule artefacts into the image so the container validates with `--network none`. Every CI run builds
+and runs that sample against the packed `.nupkg` from a clean directory, so the first five minutes
+are tested rather than hoped for.
 
 ```csharp
 using Verifacta;
@@ -211,14 +217,16 @@ processor, and the structured XML is the legally archived original in any case.
 
 ## Licence
 
-[Business Source License 1.1](LICENSE). In short:
+**Free unless your organisation turns over more than €1,000,000 a year.** Free at any size if you
+ship Verifacta inside OSI-licensed open source. Free always for evaluation, development, CI and
+internal testing.
 
-- **Free for production use** if your organisation's annual revenue is under €1,000,000, or if you
-  ship Verifacta inside OSI-licensed open source, regardless of revenue.
-- **Free for any non-production use** — evaluation, development, CI, internal testing.
-- Above that threshold, a commercial licence is required.
-- On **2030-09-04** this version becomes Apache 2.0 automatically, so there is no lock-in if the
-  project stops being maintained.
+Over that threshold and using it in production, a commercial licence is required — that is the
+part that pays for the rule packs being kept current.
+
+On **2030-09-04** this version becomes Apache 2.0 automatically, so there is no lock-in if the
+project stops being maintained. The terms are [Business Source License 1.1](LICENSE), which is not
+an OSI-approved licence; the grant above is what actually governs most users.
 
 For a commercial licence, or if you are unsure which applies to you, email oleganickij02@gmail.com.
 
