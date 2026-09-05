@@ -20,20 +20,47 @@ public sealed class InvoiceValidator
 
     public RulePackCatalog Catalog => _catalog;
 
+    internal const string ProfileRuleId = "PROFILE";
+
     /// <summary>
     /// Validates the document against its XML Schema and then the business rules. When
     /// <paramref name="ruleSet"/> is null the rule set is chosen from the document's own
     /// specification identifier. Set <paramref name="validateSchema"/> to false to check business
-    /// rules against a document fragment that is not a complete invoice.
+    /// rules against a document fragment that is not a complete invoice. Set
+    /// <paramref name="strict"/> to reject a document whose declared specification has no rule set
+    /// here, rather than quietly judging it against EN 16931 alone.
     /// </summary>
-    public ValidationResult Validate(InvoiceDocument document, RuleSet? ruleSet = null, bool validateSchema = true)
+    public ValidationResult Validate(
+        InvoiceDocument document,
+        RuleSet? ruleSet = null,
+        bool validateSchema = true,
+        bool strict = false)
     {
         ArgumentNullException.ThrowIfNull(document);
 
         var selected = ruleSet ?? RulePackCatalog.RuleSetFor(document.Profile);
+        var profileCovered = RulePackCatalog.Covers(document.Profile);
         var pack = _catalog.Describe(selected, document.Syntax);
         var findings = new List<ValidationFinding>();
         var schemaValid = true;
+
+        // Only when the rule set was ours to choose: a caller naming one explicitly has already
+        // decided what this document should be judged against.
+        if (strict && ruleSet is null && !profileCovered)
+        {
+            findings.Add(new ValidationFinding(
+                ProfileRuleId,
+                ValidationSeverity.Error,
+                "fatal",
+                $"'{document.Profile.SpecificationIdentifier ?? "(no specification identifier)"}' has no rule set " +
+                "in Verifacta. Judging it against EN 16931 alone would say nothing about the rules it declares.",
+                string.Empty,
+                string.Empty,
+                null,
+                [],
+                pack,
+                "verifacta"));
+        }
 
         if (validateSchema)
         {
@@ -56,7 +83,7 @@ public sealed class InvoiceValidator
             }
         }
 
-        return new ValidationResult(selected, [pack], findings, schemaValid, validateSchema);
+        return new ValidationResult(selected, [pack], findings, schemaValid, validateSchema, profileCovered);
     }
 
     /// <summary>

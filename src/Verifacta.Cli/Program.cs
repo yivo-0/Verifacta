@@ -125,7 +125,8 @@ int Validate()
         validator.Warmup();
     }
 
-    var reports = Batch.Run(validator, files, RuleSet(), !flags.Contains("--no-schema"));
+    var reports = Batch.Run(
+        validator, files, RuleSet(), !flags.Contains("--no-schema"), flags.Contains("--strict"));
 
     if (flags.Contains("--json"))
     {
@@ -334,12 +335,22 @@ static void PrintText(Report report, bool showFile)
     {
         Console.WriteLine("  does not conform to its XML Schema; business rules were not run");
     }
+    else if (!report.SchemaChecked)
+    {
+        Console.WriteLine("  XML Schema not checked");
+    }
+
+    if (!report.ProfileCovered)
+    {
+        Console.WriteLine($"  profile '{report.Profile ?? "(none declared)"}' has no rule set here; " +
+                          "judged against EN 16931 alone");
+    }
 
     foreach (var finding in report.Findings)
     {
         var terms = finding.BusinessTerms.Count == 0 ? string.Empty : $" [{string.Join(" ", finding.BusinessTerms)}]";
         Console.WriteLine($"  {finding.Severity,-11} {finding.RuleId,-22}{terms}");
-        Console.WriteLine($"    {finding.Location}");
+        if (finding.Location.Length > 0) Console.WriteLine($"    {finding.Location}");
         Console.WriteLine($"    {finding.Message}");
     }
 
@@ -420,6 +431,8 @@ static void Usage()
           --csv <file>    write one row per invoice, with a summary on the console
           --json          machine-readable output
           --no-schema     check business rules only, skipping XML Schema
+          --strict        fail an invoice whose declared specification has no rule set
+                          here, instead of judging it against EN 16931 alone
           -o, --out       where to write rendered HTML; stdout for a single invoice
           --lang          label language for render: de (default) or en
 
