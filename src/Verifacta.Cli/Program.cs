@@ -17,7 +17,7 @@ var values = new Dictionary<string, string>(StringComparer.Ordinal);
 
 // Options that take a value are consumed with their argument, otherwise "--rules xrechnung" would
 // treat "xrechnung" as a file to validate.
-string[] valueOptions = ["--rules", "--csv", "--out", "-o", "--lang"];
+string[] valueOptions = ["--rules", "--csv", "--out", "-o", "--lang", "--parallel"];
 
 for (var index = 1; index < args.Length; index++)
 {
@@ -125,7 +125,23 @@ int Validate()
         validator.Warmup();
     }
 
-    var reports = Batch.Run(validator, files, RuleSet(), !flags.Contains("--no-schema"));
+    // Ctrl+C stops starting new files and reports what finished, rather than losing the run.
+    using var cancellation = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, eventArgs) =>
+    {
+        eventArgs.Cancel = true;
+        Console.Error.WriteLine("Stopping; reporting what has finished.");
+        cancellation.Cancel();
+    };
+
+    var reports = Batch.Run(
+        validator,
+        files,
+        RuleSet(),
+        !flags.Contains("--no-schema"),
+        flags.Contains("--strict"),
+        Parallelism(),
+        cancellation.Token);
 
     if (flags.Contains("--json"))
     {
@@ -184,37 +200,60 @@ int Render()
     {
         try
         {
-            Console.Out.Write(renderer.ToHtml(InvoiceDocument.Load(files[0]), language));
+            Console.Out.Write(renderer.ToHtml(InvoiceDocument.Load(files[0].FullPath), language));
             return ExitCode.Valid;
         }
         catch (Exception exception) when (exception is UnsupportedDocumentException or RenderingException)
         {
-            Error($"{files[0]}: {exception.Message}");
+            Error($"{files[0].FullPath}: {exception.Message}");
             return ExitCode.Failed;
         }
     }
 
-    var failed = false;
+    var namedFile = files.Count == 1 && destination is not null && !Directory.Exists(destination);
+    var sources = files.Select(file => Path.GetFullPath(file.FullPath)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var targets = new Dictionary<string, InvoiceFile>(StringComparer.OrdinalIgnoreCase);
 
+    // Every destination is worked out and checked before anything is written, so a run that would
+    // destroy an invoice or drop one on top of another fails having touched nothing.
     foreach (var file in files)
     {
-        var target = files.Count == 1 && destination is not null && !Directory.Exists(destination)
-            ? destination
-            : Path.Combine(destination ?? Path.GetDirectoryName(file) ?? ".",
-                Path.GetFileNameWithoutExtension(file) + ".html");
+        var target = Path.GetFullPath(namedFile
+            ? destination!
+            : destination is null
+                ? Path.ChangeExtension(file.FullPath, ".html")
+                : Path.Combine(destination, Path.ChangeExtension(file.RelativePath, ".html")));
 
+        if (sources.Contains(target))
+        {
+            Error($"'{target}' is one of the invoices being rendered. Choose a different destination.");
+            return ExitCode.Usage;
+        }
+
+        if (targets.TryGetValue(target, out var claimed))
+        {
+            Error($"'{claimed.FullPath}' and '{file.FullPath}' would both be written to '{target}'. " +
+                  "Render the folders separately, or use --out with the folder they share.");
+            return ExitCode.Usage;
+        }
+
+        targets[target] = file;
+    }
+
+    var failed = false;
+
+    foreach (var (target, file) in targets.OrderBy(entry => entry.Value.FullPath, StringComparer.Ordinal))
+    {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(target))!);
-            using var writer = new StreamWriter(target);
-            renderer.ToHtml(InvoiceDocument.Load(file), writer, language);
+            WriteAtomically(target, writer => renderer.ToHtml(InvoiceDocument.Load(file.FullPath), writer, language));
             Console.WriteLine($"  {target}");
         }
         // Reported per file rather than thrown: one unreadable invoice should not abandon the rest.
         catch (Exception exception) when (exception is UnsupportedDocumentException or RenderingException
                                               or IOException or UnauthorizedAccessException)
         {
-            Error($"  {file}: {exception.Message}");
+            Error($"  {file.FullPath}: {exception.Message}");
             failed = true;
         }
     }
@@ -235,8 +274,10 @@ int Info()
         return ExitCode.Usage;
     }
 
-    foreach (var file in files)
+    foreach (var invoiceFile in files)
     {
+        var file = invoiceFile.FullPath;
+
         try
         {
             var document = InvoiceDocument.Load(file);
@@ -309,12 +350,23 @@ static void PrintText(Report report, bool showFile)
     {
         Console.WriteLine("  does not conform to its XML Schema; business rules were not run");
     }
+    else if (!report.SchemaChecked)
+    {
+        Console.WriteLine("  XML Schema not checked");
+    }
+
+    if (!report.ProfileCovered)
+    {
+        Console.WriteLine($"  profile '{report.Profile ?? "(none declared)"}' has no rule set here; " +
+                          "judged against EN 16931 alone");
+    }
 
     foreach (var finding in report.Findings)
     {
         var terms = finding.BusinessTerms.Count == 0 ? string.Empty : $" [{string.Join(" ", finding.BusinessTerms)}]";
         Console.WriteLine($"  {finding.Severity,-11} {finding.RuleId,-22}{terms}");
-        Console.WriteLine($"    {finding.Location}");
+        if (finding.Location.Length > 0) Console.WriteLine($"    {finding.Location}");
+        if (finding.Value is { } value) Console.WriteLine($"    value: {value}");
         Console.WriteLine($"    {finding.Message}");
     }
 
@@ -331,6 +383,49 @@ static int Unknown(string command)
 }
 
 static void Error(string message) => Console.Error.WriteLine(message);
+
+/// <summary>
+/// Renders to a temporary file in the destination folder and moves it into place, so a document
+/// that fails halfway through leaves whatever was already there untouched rather than a truncated
+/// page. The move is what makes the result appear all at once.
+/// </summary>
+static void WriteAtomically(string target, Action<TextWriter> render)
+{
+    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+    var temporary = target + ".partial";
+
+    try
+    {
+        using (var writer = new StreamWriter(temporary))
+        {
+            render(writer);
+        }
+
+        File.Move(temporary, target, overwrite: true);
+    }
+    catch
+    {
+        try
+        {
+            File.Delete(temporary);
+        }
+        catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
+        {
+            // The original failure is the one worth reporting.
+        }
+
+        throw;
+    }
+}
+
+int? Parallelism()
+{
+    if (!values.TryGetValue("--parallel", out var value)) return null;
+
+    return int.TryParse(value, out var parsed) && parsed > 0
+        ? parsed
+        : throw new RulePackException($"--parallel needs a positive number, not '{value}'.");
+}
 
 RuleSet? RuleSet() => values.TryGetValue("--rules", out var value)
     ? value.ToLowerInvariant() switch
@@ -361,6 +456,9 @@ static void Usage()
           --csv <file>    write one row per invoice, with a summary on the console
           --json          machine-readable output
           --no-schema     check business rules only, skipping XML Schema
+          --strict        fail an invoice whose declared specification has no rule set
+                          here, instead of judging it against EN 16931 alone
+          --parallel <n>  files validated at once (default: one per core)
           -o, --out       where to write rendered HTML; stdout for a single invoice
           --lang          label language for render: de (default) or en
 

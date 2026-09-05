@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -77,6 +78,7 @@ public sealed class RulePackCatalog
     private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly Dictionary<string, RulePack> _packs;
+    private readonly ConcurrentDictionary<string, bool> _verified = new(StringComparer.OrdinalIgnoreCase);
 
     private RulePackCatalog(string root, IEnumerable<RulePack> packs)
     {
@@ -105,7 +107,9 @@ public sealed class RulePackCatalog
         var manifest = JsonSerializer.Deserialize<Manifest>(stream, SerializerOptions)
             ?? throw new RulePackException($"The embedded manifest '{ManifestResource}' could not be read.");
 
-        var root = rulesDirectory ?? Locate() ?? Path.Combine(AppContext.BaseDirectory, "rules");
+        // Normalised so a directory given with forward slashes, or relative, behaves like any
+        // other. VERIFACTA_RULES is routinely pasted from a shell or a container path.
+        var root = Path.GetFullPath(rulesDirectory ?? Locate() ?? Path.Combine(AppContext.BaseDirectory, "rules"));
 
         foreach (var pack in manifest.Packs)
         {
@@ -124,19 +128,44 @@ public sealed class RulePackCatalog
     {
         foreach (var pack in _packs.Values)
         {
-            foreach (var (name, expected) in pack.Files)
-            {
-                var path = pack.PathTo(name);
-                if (!File.Exists(path))
-                {
-                    throw new RulePackException($"{pack} is missing '{name}'. {RestoreHint}");
-                }
+            Verify(pack);
+        }
+    }
 
-                if (!Matches(path, expected.Sha256))
-                {
-                    throw new RulePackException(
-                        $"{pack} artefact '{name}' does not match the manifest hash. {RestoreHint}");
-                }
+    /// <summary>
+    /// The pack, checked against the manifest the first time it is used in this process. Compiling
+    /// an artefact that has been altered would produce verdicts that are not the publisher's, which
+    /// is the one thing this library exists to guarantee, so the check is not opt-in.
+    /// </summary>
+    internal RulePack VerifiedPack(string id)
+    {
+        var pack = Pack(id);
+
+        // Recorded only once it has passed, so a pack repaired by a restore in the same process is
+        // not held against an earlier failure. Verifying twice under contention is harmless.
+        if (!_verified.ContainsKey(id))
+        {
+            Verify(pack);
+            _verified[id] = true;
+        }
+
+        return pack;
+    }
+
+    private static void Verify(RulePack pack)
+    {
+        foreach (var (name, expected) in pack.Files)
+        {
+            var path = pack.PathTo(name);
+            if (!File.Exists(path))
+            {
+                throw new RulePackException($"{pack} is missing '{name}'. {RestoreHint}");
+            }
+
+            if (!Matches(path, expected.Sha256))
+            {
+                throw new RulePackException(
+                    $"{pack} artefact '{name}' does not match the manifest hash. {RestoreHint}");
             }
         }
     }
@@ -213,6 +242,19 @@ public sealed class RulePackCatalog
         _ => RuleSet.En16931,
     };
 
+    /// <summary>
+    /// Whether the specification a document declares has a rule set of its own here. Anything else
+    /// falls back to EN 16931 — a sound verdict on the core rules, and no statement at all about the
+    /// national or sector rules the document says it follows. Factur-X is a fallback: its own
+    /// profile rules are not shipped.
+    /// </summary>
+    public static bool Covers(InvoiceProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+
+        return profile.Kind is ProfileKind.En16931 or ProfileKind.XRechnung or ProfileKind.PeppolBisBilling3;
+    }
+
     /// <summary>The schema a document of this shape is judged against, for labelling findings.</summary>
     internal static string SchemaName(InvoiceSyntax syntax, DocumentKind kind) => (syntax, kind) switch
     {
@@ -223,6 +265,12 @@ public sealed class RulePackCatalog
     };
 
     internal IReadOnlyList<string> Layers(RuleSet ruleSet, InvoiceSyntax syntax)
+    {
+        var (pack, files) = LayerSource(ruleSet, syntax);
+        return files.Select(pack.PathTo).ToList();
+    }
+
+    private (RulePack Pack, string[] Files) LayerSource(RuleSet ruleSet, InvoiceSyntax syntax)
     {
         var (packId, files) = (ruleSet, syntax) switch
         {
@@ -239,8 +287,7 @@ public sealed class RulePackCatalog
             _ => throw new RulePackException($"No rule pack for {ruleSet} in {syntax} syntax."),
         };
 
-        var pack = Pack(packId);
-        return files.Select(pack.PathTo).ToList();
+        return (VerifiedPack(packId), files);
     }
 
     /// <summary>
@@ -272,8 +319,7 @@ public sealed class RulePackCatalog
 
     internal string Describe(RuleSet ruleSet, InvoiceSyntax syntax)
     {
-        var directory = Path.GetDirectoryName(Layers(ruleSet, syntax)[0])!;
-        var pack = _packs.Values.First(candidate => candidate.Directory == directory);
+        var pack = LayerSource(ruleSet, syntax).Pack;
         return $"{pack.Id} {pack.Version} ({pack.Repository}@{pack.Tag})";
     }
 

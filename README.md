@@ -5,9 +5,11 @@
 Read and validate EN 16931 electronic invoices in .NET — **no Java, no Node.js, no native
 dependencies, and nothing leaves your server.**
 
-Every other way to validate a European e-invoice from .NET today needs a JVM sidecar, a Node
-process, or an upload to someone else's API. Verifacta runs the official Schematron in-process on
-pure managed .NET.
+Verifacta runs the publishers' **own compiled Schematron** in-process: the same artefacts the German
+reference validator executes, fetched from their pinned upstream releases and checked against a
+recorded SHA-256. Not a reimplementation of the rules, and not a copy vendored into this repository.
+When a verdict here disagrees with KoSIT's, that is a bug in Verifacta — and the CEN rule suite is
+replayed test by test to keep it that way.
 
 > **Not on NuGet yet** — the first package release is pending. Until then, clone and build:
 >
@@ -81,8 +83,10 @@ versions and regenerating the manifest; consumers never need it.
 | `xrechnung` | 3.0.2 | itplr-kosit/validator-configuration-xrechnung | Apache-2.0 |
 | `visualization` | 3.0.2 | itplr-kosit/xrechnung-visualization | Apache-2.0 |
 
-`src/Verifacta/RulePacks.json` records the release tag, licence and SHA-256 of every artefact.
-`RulePackCatalog.VerifyIntegrity()` checks them before use.
+`src/Verifacta/RulePacks.json` records the release tag, licence and SHA-256 of every artefact. A pack
+is checked against it the first time it is used in a process, so an artefact that has been altered
+on disk stops validation rather than quietly changing the verdict. `verifacta rules verify` and
+`RulePackCatalog.VerifyIntegrity()` check everything on demand.
 
 ### Staying current
 
@@ -126,7 +130,41 @@ across cores; 521 files take about 12 seconds including the one-off rule-pack co
 to stdout for a single invoice or beside each file for a folder. `--lang en` switches the labels.
 
 Options: `--rules en16931|peppol|xrechnung`, `--recursive`, `--csv <file>`, `--json`, `--no-schema`,
-`-o|--out <file|folder>`, `--lang de|en`.
+`--strict`, `--parallel <n>`, `-o|--out <file|folder>`, `--lang de|en`.
+Ctrl+C stops starting new files and reports what finished.
+
+### What "valid" means
+
+A verdict is only useful if it says valid against what, so every result carries the rule set, the
+pack versions behind it, whether the XML Schema was actually checked (`SchemaChecked`), and whether
+the specification the document declares has a rule set here at all (`ProfileCovered`). All four
+reach the JSON and CSV output.
+
+A document declaring a specification Verifacta has no rules for — a national CIUS it does not ship,
+or Factur-X's own profile rules — is judged against EN 16931 and says so. `--strict` turns that into
+a failure instead.
+
+Validating a hybrid PDF validates **the XML inside it**. Verifacta says nothing about whether the
+PDF itself conforms to PDF/A-3 or carries the XMP metadata Factur-X requires.
+
+Findings carry the offending value where the rule pointed at a single one. Many EN 16931 rules
+compare several fields — `BR-CO-15` weighs three totals against each other — and their Schematron
+context is the invoice itself; those report no value rather than the concatenated text of the whole
+document.
+
+### Hosting it
+
+Invoices arrive from whoever sent them, so `DocumentLimits` bounds what one document may cost to
+read — input size, attachment size, and how far a PDF's embedded-file tree is walked. Defaults are
+far above any real invoice and exist to stop abuse:
+
+```csharp
+var document = InvoiceDocument.Load(stream, new DocumentLimits { MaxBytes = 8 * 1024 * 1024 });
+```
+
+`Validate` takes a `CancellationToken`, observed before the schema and between rule layers. That is
+every point there is: a Saxon transform, once started, runs to completion, so cancellation is prompt
+across a batch and coarse within one large document.
 Exit codes: `0` valid, `1` validation errors, `2` a file could not be processed, `64` usage error.
 
 ## Verified against
@@ -134,6 +172,13 @@ Exit codes: `0` valid, `1` validation errors, `2` a file could not be processed,
 Every corpus source is pinned to a release tag or commit, so the verification is reproducible
 rather than drifting with upstream. The live pass count is on the CI badge above.
 
+- **The German reference validator, verdict for verdict.** Every CI run puts 143 invoices through
+  both Verifacta and [KoSIT's validationtool](https://github.com/itplr-kosit/validator) — the tool
+  the publishers ship — using the same scenario configuration release, and diffs the rule ids each
+  reports. **100 of 100 comparable files agree rule for rule.** The other 43 are recorded with the
+  reason they cannot be compared, usually that the reference matched no scenario for them. A
+  disagreement that is not written down fails the build. `python tools/reference-diff.py`, and
+  `corpus/reference-diff.md` is published as a CI artifact.
 - **The CEN rule suite, rule by rule.** All 309 official test files, every `<success>` and `<error>`
   expectation replayed. This is the oracle: it proves agreement with CEN per rule, not just overall.
 - **Published instances.** 70 of 72 KoSIT XRechnung business cases and 10 of 12 Peppol examples

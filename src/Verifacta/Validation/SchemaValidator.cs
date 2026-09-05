@@ -37,6 +37,7 @@ internal sealed class SchemaValidator
                 args.Message,
                 element is null ? string.Empty : element.Path(),
                 string.Empty,
+                Value(sender),
                 null,
                 [],
                 pack,
@@ -45,6 +46,21 @@ internal sealed class SchemaValidator
 
         return findings;
     }
+
+    /// <summary>
+    /// The offending text, when the schema complained about something that has one. An attribute
+    /// reports its own value; an element reports its content only when it has no children, since
+    /// the concatenated text of a whole subtree tells nobody anything.
+    /// </summary>
+    private static string? Value(object? sender) => sender switch
+    {
+        XAttribute attribute => Trim(attribute.Value),
+        XElement element when !element.HasElements => Trim(element.Value),
+        _ => null,
+    };
+
+    private static string? Trim(string value) =>
+        value.Trim() is { Length: > 0 } trimmed ? trimmed : null;
 
     private static XmlSchemaSet Compile(RulePack pack)
     {

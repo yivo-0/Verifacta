@@ -24,6 +24,7 @@ public sealed class ValidationFinding
         string message,
         string location,
         string rawLocation,
+        string? value,
         string? test,
         IReadOnlyList<string> businessTerms,
         string rulePack,
@@ -35,6 +36,7 @@ public sealed class ValidationFinding
         Message = message;
         Location = location;
         RawLocation = rawLocation;
+        Value = value;
         Test = test;
         BusinessTerms = businessTerms;
         RulePack = rulePack;
@@ -53,6 +55,14 @@ public sealed class ValidationFinding
     public string Location { get; }
 
     public string RawLocation { get; }
+
+    /// <summary>
+    /// The value at <see cref="Location"/> in the document, when the location resolves to a single
+    /// node. SVRL does not carry one, and an application turning a rule message into something a
+    /// user can act on almost always needs it. Collapsed to one line and truncated; null when the
+    /// location is absent, does not resolve, or the node is empty.
+    /// </summary>
+    public string? Value { get; }
 
     public string? Test { get; }
 
@@ -76,13 +86,15 @@ public sealed class ValidationResult
         IReadOnlyList<string> rulePacks,
         IReadOnlyList<ValidationFinding> findings,
         bool schemaValid,
-        bool schemaChecked)
+        bool schemaChecked,
+        bool profileCovered)
     {
         RuleSet = ruleSet;
         RulePacks = rulePacks;
         Findings = findings;
         SchemaValid = schemaValid;
         SchemaChecked = schemaChecked;
+        ProfileCovered = profileCovered;
     }
 
     public RuleSet RuleSet { get; }
@@ -104,6 +116,14 @@ public sealed class ValidationResult
     /// "not checked" rather than "conformant".
     /// </summary>
     public bool SchemaChecked { get; }
+
+    /// <summary>
+    /// False when the document declares a specification with no rule set of its own here, so it was
+    /// judged against EN 16931 alone. The verdict on the core rules stands; the national or sector
+    /// rules the document claims to follow were never applied. Validate in strict mode to have that
+    /// reported as an error instead.
+    /// </summary>
+    public bool ProfileCovered { get; }
 
     public bool IsValid => !Findings.Any(finding => finding.Severity == ValidationSeverity.Error);
 

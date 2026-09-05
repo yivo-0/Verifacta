@@ -12,11 +12,15 @@ internal static class Batch
 {
     private static readonly string[] Extensions = [".xml", ".pdf"];
 
-    /// <summary>Expands directories to the invoice files inside them; plain paths pass through.</summary>
-    internal static List<string> Expand(IEnumerable<string> paths, bool recursive)
+    /// <summary>
+    /// Expands directories to the invoice files inside them; plain paths pass through. The path each
+    /// file had relative to the folder it was found in is kept, so a command writing output per
+    /// invoice can reproduce the folder structure instead of flattening it.
+    /// </summary>
+    internal static List<InvoiceFile> Expand(IEnumerable<string> paths, bool recursive)
     {
         var search = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        var files = new List<string>();
+        var files = new List<InvoiceFile>();
 
         foreach (var path in paths)
         {
@@ -24,65 +28,108 @@ internal static class Batch
             {
                 files.AddRange(Directory
                     .EnumerateFiles(path, "*", search)
-                    .Where(file => Extensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase)));
+                    .Where(file => Extensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
+                    .Select(file => new InvoiceFile(file, Path.GetRelativePath(path, file))));
             }
             else
             {
-                files.Add(path);
+                files.Add(new InvoiceFile(path, Path.GetFileName(path)));
             }
         }
 
-        return files.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToList();
+        return files
+            .DistinctBy(file => file.FullPath, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(file => file.FullPath, StringComparer.Ordinal)
+            .ToList();
     }
 
+    /// <summary>
+    /// Validates every file, returning what completed. Cancelling stops new files being started;
+    /// whatever finished is still reported, because a partial answer over an archive is worth more
+    /// than none.
+    /// </summary>
     internal static List<Report> Run(
-        InvoiceValidator validator, List<string> files, RuleSet? ruleSet, bool validateSchema)
+        InvoiceValidator validator,
+        List<InvoiceFile> files,
+        RuleSet? ruleSet,
+        bool validateSchema,
+        bool strict = false,
+        int? maxConcurrency = null,
+        CancellationToken cancellationToken = default)
     {
         var reports = new ConcurrentBag<Report>();
 
         // The validator caches compiled stylesheets and is thread-safe, so a large archive is
-        // worth spreading across cores; a single file is not.
+        // worth spreading across cores; a single file is not. Bounded on purpose: each worker holds
+        // a parsed document and a Saxon transformer, so unbounded parallelism buys nothing and
+        // costs memory a host cannot predict.
         if (files.Count > 1)
         {
-            Parallel.ForEach(files, file => reports.Add(Validate(validator, file, ruleSet, validateSchema)));
+            var options = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = maxConcurrency ?? Environment.ProcessorCount,
+                CancellationToken = cancellationToken,
+            };
+
+            try
+            {
+                Parallel.ForEach(files, options, file =>
+                    reports.Add(Validate(validator, file.FullPath, ruleSet, validateSchema, strict, cancellationToken)));
+            }
+            catch (OperationCanceledException)
+            {
+                // Report what finished.
+            }
         }
         else
         {
-            reports.Add(Validate(validator, files[0], ruleSet, validateSchema));
+            reports.Add(Validate(validator, files[0].FullPath, ruleSet, validateSchema, strict, cancellationToken));
         }
 
         return reports.OrderBy(report => report.File, StringComparer.Ordinal).ToList();
     }
 
     private static Report Validate(
-        InvoiceValidator validator, string file, RuleSet? ruleSet, bool validateSchema)
+        InvoiceValidator validator,
+        string file,
+        RuleSet? ruleSet,
+        bool validateSchema,
+        bool strict,
+        CancellationToken cancellationToken)
     {
         try
         {
             var document = InvoiceDocument.Load(file);
-            var result = validator.Validate(document, ruleSet, validateSchema);
+            var result = validator.Validate(document, ruleSet, validateSchema, strict, cancellationToken);
 
             return new Report(
                 file,
                 result.IsValid ? "valid" : "invalid",
                 result.RuleSet.ToString(),
+                result.SchemaChecked,
                 result.SchemaValid,
+                result.ProfileCovered,
+                document.Profile.SpecificationIdentifier,
                 document.EmbeddedFileName,
                 result.Findings.Select(Finding.From).ToList(),
                 null);
         }
         // Reported as a row rather than thrown: one unreadable file in an archive of thousands
         // should not abandon the run, and Parallel.ForEach would surface it as an AggregateException.
+        // Malformed XML arrives as UnsupportedDocumentException, wrapped by InvoiceDocument.
         catch (Exception exception) when (exception is UnsupportedDocumentException or ValidationException
                                              or IOException or UnauthorizedAccessException)
         {
-            return new Report(file, "error", null, false, null, [], exception.Message);
+            return new Report(file, "error", null, false, false, false, null, null, [], exception.Message);
         }
     }
 
     internal static void WriteCsv(TextWriter writer, IEnumerable<Report> reports)
     {
-        writer.WriteLine("file,status,ruleSet,schemaValid,errors,warnings,rules,detail");
+        // schemaChecked and profileCovered are what turn "valid" into a statement you can act on:
+        // valid against what, and was the schema even looked at.
+        writer.WriteLine(
+            "file,status,ruleSet,profile,profileCovered,schemaChecked,schemaValid,errors,warnings,rules,detail");
 
         foreach (var report in reports)
         {
@@ -97,6 +144,9 @@ internal static class Batch
                 Escape(report.File),
                 report.Status,
                 report.RuleSet ?? string.Empty,
+                Escape(report.Profile ?? string.Empty),
+                report.ProfileCovered.ToString(CultureInfo.InvariantCulture),
+                report.SchemaChecked.ToString(CultureInfo.InvariantCulture),
                 report.SchemaValid.ToString(CultureInfo.InvariantCulture),
                 errors.ToString(CultureInfo.InvariantCulture),
                 warnings.ToString(CultureInfo.InvariantCulture),
@@ -120,6 +170,18 @@ internal static class Batch
         if (schemaFailures > 0)
         {
             writer.WriteLine($"{schemaFailures} did not conform to their XML Schema, so business rules were not run.");
+        }
+
+        var uncovered = reports.Count(report => report.Status != "error" && !report.ProfileCovered);
+        if (uncovered > 0)
+        {
+            writer.WriteLine($"{uncovered} declared a specification with no rule set here and were judged " +
+                             "against EN 16931 alone. Use --strict to treat that as a failure.");
+        }
+
+        if (reports.Any(report => report.Status != "error" && !report.SchemaChecked))
+        {
+            writer.WriteLine("XML Schema was not checked, so \"valid\" covers the business rules only.");
         }
 
         var byRule = reports
@@ -151,11 +213,17 @@ internal static class Batch
     }
 }
 
+/// <summary>An invoice to process, and where it sat relative to the folder it was found in.</summary>
+internal sealed record InvoiceFile(string FullPath, string RelativePath);
+
 internal sealed record Report(
     string File,
     string Status,
     string? RuleSet,
+    bool SchemaChecked,
     bool SchemaValid,
+    bool ProfileCovered,
+    string? Profile,
     string? Attachment,
     List<Finding> Findings,
     string? Error);
@@ -165,6 +233,7 @@ internal sealed record Finding(
     string Severity,
     string Message,
     string Location,
+    string? Value,
     List<string> BusinessTerms,
     string Artefact)
 {
@@ -173,6 +242,7 @@ internal sealed record Finding(
         finding.Severity.ToString(),
         finding.Message,
         finding.Location,
+        finding.Value,
         finding.BusinessTerms.ToList(),
         finding.Artefact);
 }

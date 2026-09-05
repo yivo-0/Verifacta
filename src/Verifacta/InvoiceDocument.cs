@@ -53,21 +53,20 @@ public sealed class InvoiceDocument
     public string? EmbeddedFileName { get; }
 
     /// <summary>Loads an invoice from XML, or from the XML embedded in a hybrid PDF/A-3 file.</summary>
-    public static InvoiceDocument Load(string path)
+    public static InvoiceDocument Load(string path, DocumentLimits? limits = null)
     {
         using var stream = File.OpenRead(path);
-        return Load(stream);
+        return Load(stream, limits);
     }
 
     /// <summary>Loads an invoice from XML, or from the XML embedded in a hybrid PDF/A-3 file.</summary>
-    public static InvoiceDocument Load(Stream stream)
+    public static InvoiceDocument Load(Stream stream, DocumentLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(stream);
+        limits ??= DocumentLimits.Default;
 
         // Buffered because the format is decided from the first bytes and PdfReader needs to seek.
-        var buffered = new MemoryStream();
-        stream.CopyTo(buffered);
-        buffered.Position = 0;
+        var buffered = Buffer(stream, limits.MaxBytes);
 
         var head = new byte[5];
         var read = buffered.Read(head, 0, head.Length);
@@ -78,21 +77,64 @@ public sealed class InvoiceDocument
             return Create(ReadXml(buffered), null);
         }
 
-        var (content, fileName) = PdfAttachments.ExtractInvoice(buffered);
+        var (content, fileName) = PdfAttachments.ExtractInvoice(buffered, limits);
         return Create(ReadXml(new MemoryStream(content)), fileName);
+    }
+
+    /// <summary>
+    /// Copies the stream while counting, so an oversized input is refused as it arrives rather than
+    /// after it has already been held in memory.
+    /// </summary>
+    private static MemoryStream Buffer(Stream stream, long maxBytes)
+    {
+        var buffered = new MemoryStream();
+        var chunk = new byte[81920];
+        int read;
+
+        while ((read = stream.Read(chunk, 0, chunk.Length)) > 0)
+        {
+            if (buffered.Length + read > maxBytes)
+            {
+                throw new UnsupportedDocumentException(
+                    $"The document is larger than the {maxBytes:N0} byte limit. " +
+                    "Raise DocumentLimits.MaxBytes if this is genuinely an invoice.");
+            }
+
+            buffered.Write(chunk, 0, read);
+        }
+
+        buffered.Position = 0;
+        return buffered;
     }
 
     public static InvoiceDocument Parse(string xml)
     {
         using var textReader = new StringReader(xml);
         using var reader = XmlReader.Create(textReader, ReaderSettings);
-        return Create(XDocument.Load(reader, LoadOptions.SetLineInfo), null);
+        return Create(LoadXml(reader), null);
     }
 
     private static XDocument ReadXml(Stream stream)
     {
         using var reader = XmlReader.Create(stream, ReaderSettings);
-        return XDocument.Load(reader, LoadOptions.SetLineInfo);
+        return LoadXml(reader);
+    }
+
+    /// <summary>
+    /// Malformed XML is the same kind of problem as a root element we do not recognise: the file
+    /// cannot be used. Callers get one exception type for that, rather than XmlException from a
+    /// truncated file and UnsupportedDocumentException from the next one along.
+    /// </summary>
+    private static XDocument LoadXml(XmlReader reader)
+    {
+        try
+        {
+            return XDocument.Load(reader, LoadOptions.SetLineInfo);
+        }
+        catch (XmlException exception)
+        {
+            throw new UnsupportedDocumentException($"The XML could not be parsed: {exception.Message}");
+        }
     }
 
     public ReadResult Read() => Syntax switch

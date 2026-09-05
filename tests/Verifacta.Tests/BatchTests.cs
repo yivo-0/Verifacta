@@ -22,7 +22,7 @@ public class BatchTests : IDisposable
 
         var files = Batch.Expand([_root], recursive: false);
 
-        Assert.Equal(["a.xml", "b.pdf"], files.Select(Path.GetFileName));
+        Assert.Equal(["a.xml", "b.pdf"], files.Select(file => Path.GetFileName(file.FullPath)));
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public class BatchTests : IDisposable
     {
         var path = Path.Combine(_root, "missing.xml");
 
-        Assert.Equal([path], Batch.Expand([path], recursive: false));
+        Assert.Equal([path], Batch.Expand([path], recursive: false).Select(file => file.FullPath));
     }
 
     [Fact]
@@ -63,23 +63,54 @@ public class BatchTests : IDisposable
     }
 
     [Fact]
+    public void Keeps_the_path_each_file_had_inside_its_folder()
+    {
+        Touch("customer-a/001.xml");
+        Touch("customer-b/001.xml");
+
+        var files = Batch.Expand([_root], recursive: true);
+
+        Assert.Equal(
+            [Path.Combine("customer-a", "001.xml"), Path.Combine("customer-b", "001.xml")],
+            files.Select(file => file.RelativePath));
+    }
+
+    [Fact]
     public void Writes_a_csv_row_per_invoice()
     {
         var reports = new List<Report>
         {
-            new("a.xml", "valid", "XRechnung", true, null, [], null),
-            new("b.xml", "invalid", "En16931", true, null,
-                [new Finding("BR-CO-15", "Error", "totals disagree", "/x", ["BT-112"], "EN16931-UBL-validation.xsl")],
-                null),
+            Valid("a.xml"),
+            Report("b.xml", "invalid", "En16931", profile: "urn:cen.eu:en16931:2017",
+                findings: [new Finding("BR-CO-15", "Error", "totals disagree", "/x", "2033.00", ["BT-112"], "EN16931-UBL-validation.xsl")]),
         };
 
         using var writer = new StringWriter();
         Batch.WriteCsv(writer, reports);
         var lines = writer.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
 
-        Assert.Equal("file,status,ruleSet,schemaValid,errors,warnings,rules,detail", lines[0]);
-        Assert.Equal("a.xml,valid,XRechnung,True,0,0,,", lines[1]);
-        Assert.Equal("b.xml,invalid,En16931,True,1,0,BR-CO-15,", lines[2]);
+        Assert.Equal(
+            "file,status,ruleSet,profile,profileCovered,schemaChecked,schemaValid,errors,warnings,rules,detail",
+            lines[0]);
+        Assert.Equal("a.xml,valid,XRechnung,urn:xrechnung,True,True,True,0,0,,", lines[1]);
+        Assert.Equal("b.xml,invalid,En16931,urn:cen.eu:en16931:2017,True,True,True,1,0,BR-CO-15,", lines[2]);
+    }
+
+    [Fact]
+    public void Records_that_the_schema_was_skipped_and_the_profile_unknown()
+    {
+        var reports = new List<Report>
+        {
+            Report("a.xml", "valid", "En16931", profile: "urn:something:else",
+                profileCovered: false, schemaChecked: false),
+        };
+
+        using var writer = new StringWriter();
+        Batch.WriteCsv(writer, reports);
+        var row = writer.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)[1];
+
+        // "valid" alone would be a claim the run cannot support.
+        Assert.Equal("a.xml,valid,En16931,urn:something:else,False,False,True,0,0,,", row);
     }
 
     [Fact]
@@ -87,7 +118,7 @@ public class BatchTests : IDisposable
     {
         var reports = new List<Report>
         {
-            new("in,voice.xml", "error", null, false, null, [], "he said \"no\""),
+            Report("in,voice.xml", "error", null, error: "he said \"no\""),
         };
 
         using var writer = new StringWriter();
@@ -105,8 +136,8 @@ public class BatchTests : IDisposable
             Invalid("a.xml", "BR-CO-15"),
             Invalid("b.xml", "BR-CO-15"),
             Invalid("c.xml", "BR-DE-15"),
-            new("d.xml", "valid", "XRechnung", true, null, [], null),
-            new("e.xml", "error", null, false, null, [], "not a PDF"),
+            Valid("d.xml"),
+            Report("e.xml", "error", null, error: "not a PDF"),
         };
 
         using var writer = new StringWriter();
@@ -122,7 +153,7 @@ public class BatchTests : IDisposable
     [Fact]
     public void Says_when_a_file_never_reached_the_business_rules()
     {
-        var reports = new List<Report> { new("a.xml", "invalid", "XRechnung", false, null, [], null) };
+        var reports = new List<Report> { Report("a.xml", "invalid", "XRechnung", schemaValid: false) };
 
         using var writer = new StringWriter();
         Batch.WriteSummary(writer, reports);
@@ -130,10 +161,47 @@ public class BatchTests : IDisposable
         Assert.Contains("did not conform to their XML Schema", writer.ToString());
     }
 
-    private static Report Invalid(string file, string ruleId) => new(
-        file, "invalid", "XRechnung", true, null,
-        [new Finding(ruleId, nameof(ValidationSeverity.Error), "failed", "/x", [], "artefact.xsl")],
-        null);
+    [Fact]
+    public void Says_when_a_profile_had_no_rule_set_of_its_own()
+    {
+        var reports = new List<Report> { Report("a.xml", "valid", "En16931", profileCovered: false) };
+
+        using var writer = new StringWriter();
+        Batch.WriteSummary(writer, reports);
+        var summary = writer.ToString();
+
+        Assert.Contains("judged against EN 16931 alone", summary);
+        Assert.Contains("--strict", summary);
+    }
+
+    [Fact]
+    public void Says_when_the_schema_was_never_checked()
+    {
+        var reports = new List<Report> { Report("a.xml", "valid", "En16931", schemaChecked: false) };
+
+        using var writer = new StringWriter();
+        Batch.WriteSummary(writer, reports);
+
+        Assert.Contains("XML Schema was not checked", writer.ToString());
+    }
+
+    private static Report Invalid(string file, string ruleId) => Report(
+        file, "invalid", "XRechnung",
+        findings: [new Finding(ruleId, nameof(ValidationSeverity.Error), "failed", "/x", null, [], "artefact.xsl")]);
+
+    private static Report Valid(string file) => Report(file, "valid", "XRechnung");
+
+    private static Report Report(
+        string file,
+        string status,
+        string? ruleSet,
+        bool schemaChecked = true,
+        bool schemaValid = true,
+        bool profileCovered = true,
+        string? profile = "urn:xrechnung",
+        List<Finding>? findings = null,
+        string? error = null) =>
+        new(file, status, ruleSet, schemaChecked, schemaValid, profileCovered, profile, null, findings ?? [], error);
 
     private void Touch(string relativePath)
     {
