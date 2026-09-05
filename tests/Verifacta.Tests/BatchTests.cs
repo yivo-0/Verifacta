@@ -82,7 +82,7 @@ public class BatchTests : IDisposable
         {
             Valid("a.xml"),
             Report("b.xml", "invalid", "En16931", profile: "urn:cen.eu:en16931:2017",
-                findings: [new Finding("BR-CO-15", "Error", "totals disagree", "/x", ["BT-112"], "EN16931-UBL-validation.xsl")]),
+                findings: [new Finding("BR-CO-15", "Error", "totals disagree", "/x", "2033.00", ["BT-112"], "EN16931-UBL-validation.xsl")]),
         };
 
         using var writer = new StringWriter();
@@ -187,7 +187,7 @@ public class BatchTests : IDisposable
 
     private static Report Invalid(string file, string ruleId) => Report(
         file, "invalid", "XRechnung",
-        findings: [new Finding(ruleId, nameof(ValidationSeverity.Error), "failed", "/x", [], "artefact.xsl")]);
+        findings: [new Finding(ruleId, nameof(ValidationSeverity.Error), "failed", "/x", null, [], "artefact.xsl")]);
 
     private static Report Valid(string file) => Report(file, "valid", "XRechnung");
 

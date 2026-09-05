@@ -20,9 +20,9 @@ internal static class PdfAttachments
     internal static bool LooksLikePdf(ReadOnlySpan<byte> head) =>
         head.Length >= 5 && head[0] == '%' && head[1] == 'P' && head[2] == 'D' && head[3] == 'F' && head[4] == '-';
 
-    internal static (byte[] Content, string FileName) ExtractInvoice(Stream stream)
+    internal static (byte[] Content, string FileName) ExtractInvoice(Stream stream, DocumentLimits limits)
     {
-        var attachments = Read(stream);
+        var attachments = Read(stream, limits);
 
         if (attachments.Count == 0)
         {
@@ -49,7 +49,7 @@ internal static class PdfAttachments
             $"invoice attachment ({string.Join(", ", KnownNames)}).");
     }
 
-    private static Dictionary<string, byte[]> Read(Stream stream)
+    private static Dictionary<string, byte[]> Read(Stream stream, DocumentLimits limits)
     {
         // A malformed PDF can fail anywhere inside the reader, and PDFsharp does not confine itself
         // to PdfReaderException — a truncated file raises ArgumentOutOfRangeException. Callers get
@@ -65,10 +65,10 @@ internal static class PdfAttachments
 
             if (embedded is not null)
             {
-                CollectNameTree(embedded, attachments);
+                CollectNameTree(embedded, attachments, limits);
             }
 
-            CollectFileAnnotations(document, attachments);
+            CollectFileAnnotations(document, attachments, limits);
             return attachments;
         }
         catch (Exception exception) when (exception is not (UnsupportedDocumentException or OutOfMemoryException))
@@ -79,18 +79,13 @@ internal static class PdfAttachments
     }
 
     /// <summary>
-    /// A real embedded-files tree has a handful of nodes. Anything past this is not a hybrid
-    /// invoice, and continuing to walk it only serves whoever built the file.
-    /// </summary>
-    private const int MaxNameTreeNodes = 4096;
-
-    /// <summary>
     /// A PDF name tree is either a flat /Names array or an inner node with /Kids.
     /// Walked iteratively, and never through the same node twice: the file comes from outside, and
     /// a /Kids entry pointing back at an ancestor recursed until the process died on a stack
     /// overflow — which no caller can catch, because .NET does not let one.
     /// </summary>
-    private static void CollectNameTree(PdfDictionary root, Dictionary<string, byte[]> attachments)
+    private static void CollectNameTree(
+        PdfDictionary root, Dictionary<string, byte[]> attachments, DocumentLimits limits)
     {
         var pending = new Stack<PdfDictionary>();
         var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
@@ -100,10 +95,10 @@ internal static class PdfAttachments
 
         while (pending.Count > 0)
         {
-            if (++visited > MaxNameTreeNodes)
+            if (++visited > limits.MaxPdfNameTreeNodes)
             {
                 throw new UnsupportedDocumentException(
-                    $"The PDF's embedded-file tree has more than {MaxNameTreeNodes} nodes, " +
+                    $"The PDF's embedded-file tree has more than {limits.MaxPdfNameTreeNodes} nodes, " +
                     "which no hybrid invoice does.");
             }
 
@@ -121,7 +116,7 @@ internal static class PdfAttachments
 
                     if (name is null || specification is null) continue;
 
-                    Add(name.Value, specification, attachments);
+                    Add(name.Value, specification, attachments, limits);
                 }
             }
 
@@ -137,7 +132,8 @@ internal static class PdfAttachments
     }
 
     /// <summary>Some producers attach the XML as a page annotation instead of a document-level file.</summary>
-    private static void CollectFileAnnotations(PdfDocument document, Dictionary<string, byte[]> attachments)
+    private static void CollectFileAnnotations(
+        PdfDocument document, Dictionary<string, byte[]> attachments, DocumentLimits limits)
     {
         foreach (var page in document.Pages)
         {
@@ -152,12 +148,13 @@ internal static class PdfAttachments
                 if (annotation?.Elements.GetName("/Subtype") != "/FileAttachment") continue;
 
                 var specification = annotation.Elements.GetDictionary("/FS");
-                if (specification is not null) Add(null, specification, attachments);
+                if (specification is not null) Add(null, specification, attachments, limits);
             }
         }
     }
 
-    private static void Add(string? name, PdfDictionary specification, Dictionary<string, byte[]> attachments)
+    private static void Add(
+        string? name, PdfDictionary specification, Dictionary<string, byte[]> attachments, DocumentLimits limits)
     {
         var fileName = Clean(name)
             ?? Clean(specification.Elements.GetString("/UF"))
@@ -169,10 +166,17 @@ internal static class PdfAttachments
         var content = files?.Elements.GetDictionary("/F") ?? files?.Elements.GetDictionary("/UF");
         var bytes = content?.Stream?.UnfilteredValue;
 
-        if (bytes is { Length: > 0 })
+        if (bytes is not { Length: > 0 }) return;
+
+        if (bytes.LongLength > limits.MaxAttachmentBytes)
         {
-            attachments[fileName] = bytes;
+            throw new UnsupportedDocumentException(
+                $"The attachment '{fileName}' is {bytes.LongLength:N0} bytes, over the " +
+                $"{limits.MaxAttachmentBytes:N0} byte limit. Raise DocumentLimits.MaxAttachmentBytes " +
+                "if this is genuinely an invoice.");
         }
+
+        attachments[fileName] = bytes;
     }
 
     private static string? Clean(string? value)

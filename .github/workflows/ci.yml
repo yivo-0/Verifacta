@@ -35,8 +35,12 @@ jobs:
       - name: Fetch the official test corpora
         run: python tools/fetch-corpus.py
 
-      # Runs on net8.0 and net10.0, because the library ships both.
+      # Runs on net8.0 and net10.0, because the library ships both. VERIFACTA_REQUIRE_CORPUS makes
+      # a missing corpus or an unrestored rule pack a failure: without it most of the suite turns
+      # into no-ops and a green run proves nothing.
       - name: Test
+        env:
+          VERIFACTA_REQUIRE_CORPUS: 1
         run: dotnet test --configuration Release --no-build
 
       # The unit tests are not enough on their own: a rule pack added for rendering broke
@@ -66,6 +70,7 @@ jobs:
         with:
           name: corpus-reports
           path: |
+            corpus/coverage.md
             corpus/report.md
             corpus/validation-report.md
             corpus/pdf-report.md
