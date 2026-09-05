@@ -7,7 +7,11 @@ internal static partial class SvrlReader
 {
     private static readonly XNamespace Svrl = "http://purl.oclc.org/dsdl/svrl";
 
-    internal static IEnumerable<ValidationFinding> Read(XDocument report, string rulePack, string artefact)
+    /// <summary>The longest offending value worth carrying; past this it is noise in a log.</summary>
+    private const int MaxValueLength = 200;
+
+    internal static IEnumerable<ValidationFinding> Read(
+        XDocument report, string rulePack, string artefact, Func<string, string?> valueAt)
     {
         var elements = report.Descendants(Svrl + "failed-assert")
             .Concat(report.Descendants(Svrl + "successful-report"));
@@ -26,6 +30,7 @@ internal static partial class SvrlReader
                 StripRulePrefix(text, ruleId),
                 LocationPath.Normalise(rawLocation),
                 rawLocation,
+                Shorten(Collapse(valueAt(rawLocation))),
                 element.Attribute("test")?.Value,
                 BusinessTermPattern().Matches(text).Select(match => match.Value).Distinct().ToList(),
                 rulePack,
@@ -52,6 +57,13 @@ internal static partial class SvrlReader
 
         return text[prefix.Length..].TrimStart('-', ' ');
     }
+
+    private static string? Shorten(string value) => value.Length switch
+    {
+        0 => null,
+        <= MaxValueLength => value,
+        _ => value[..MaxValueLength] + "…",
+    };
 
     private static string Collapse(string? value) =>
         value is null ? string.Empty : WhitespacePattern().Replace(value, " ").Trim();

@@ -24,6 +24,7 @@ public sealed class ValidationFinding
         string message,
         string location,
         string rawLocation,
+        string? value,
         string? test,
         IReadOnlyList<string> businessTerms,
         string rulePack,
@@ -35,6 +36,7 @@ public sealed class ValidationFinding
         Message = message;
         Location = location;
         RawLocation = rawLocation;
+        Value = value;
         Test = test;
         BusinessTerms = businessTerms;
         RulePack = rulePack;
@@ -53,6 +55,14 @@ public sealed class ValidationFinding
     public string Location { get; }
 
     public string RawLocation { get; }
+
+    /// <summary>
+    /// The value at <see cref="Location"/> in the document, when the location resolves to a single
+    /// node. SVRL does not carry one, and an application turning a rule message into something a
+    /// user can act on almost always needs it. Collapsed to one line and truncated; null when the
+    /// location is absent, does not resolve, or the node is empty.
+    /// </summary>
+    public string? Value { get; }
 
     public string? Test { get; }
 

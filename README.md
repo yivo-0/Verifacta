@@ -130,7 +130,8 @@ across cores; 521 files take about 12 seconds including the one-off rule-pack co
 to stdout for a single invoice or beside each file for a folder. `--lang en` switches the labels.
 
 Options: `--rules en16931|peppol|xrechnung`, `--recursive`, `--csv <file>`, `--json`, `--no-schema`,
-`--strict`, `-o|--out <file|folder>`, `--lang de|en`.
+`--strict`, `--parallel <n>`, `-o|--out <file|folder>`, `--lang de|en`.
+Ctrl+C stops starting new files and reports what finished.
 
 ### What "valid" means
 
@@ -145,6 +146,25 @@ a failure instead.
 
 Validating a hybrid PDF validates **the XML inside it**. Verifacta says nothing about whether the
 PDF itself conforms to PDF/A-3 or carries the XMP metadata Factur-X requires.
+
+Findings carry the offending value where the rule pointed at a single one. Many EN 16931 rules
+compare several fields — `BR-CO-15` weighs three totals against each other — and their Schematron
+context is the invoice itself; those report no value rather than the concatenated text of the whole
+document.
+
+### Hosting it
+
+Invoices arrive from whoever sent them, so `DocumentLimits` bounds what one document may cost to
+read — input size, attachment size, and how far a PDF's embedded-file tree is walked. Defaults are
+far above any real invoice and exist to stop abuse:
+
+```csharp
+var document = InvoiceDocument.Load(stream, new DocumentLimits { MaxBytes = 8 * 1024 * 1024 });
+```
+
+`Validate` takes a `CancellationToken`, observed before the schema and between rule layers. That is
+every point there is: a Saxon transform, once started, runs to completion, so cancellation is prompt
+across a batch and coarse within one large document.
 Exit codes: `0` valid, `1` validation errors, `2` a file could not be processed, `64` usage error.
 
 ## Verified against

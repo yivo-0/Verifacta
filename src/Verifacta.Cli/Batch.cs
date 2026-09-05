@@ -43,33 +43,64 @@ internal static class Batch
             .ToList();
     }
 
+    /// <summary>
+    /// Validates every file, returning what completed. Cancelling stops new files being started;
+    /// whatever finished is still reported, because a partial answer over an archive is worth more
+    /// than none.
+    /// </summary>
     internal static List<Report> Run(
-        InvoiceValidator validator, List<InvoiceFile> files, RuleSet? ruleSet, bool validateSchema, bool strict = false)
+        InvoiceValidator validator,
+        List<InvoiceFile> files,
+        RuleSet? ruleSet,
+        bool validateSchema,
+        bool strict = false,
+        int? maxConcurrency = null,
+        CancellationToken cancellationToken = default)
     {
         var reports = new ConcurrentBag<Report>();
 
         // The validator caches compiled stylesheets and is thread-safe, so a large archive is
-        // worth spreading across cores; a single file is not.
+        // worth spreading across cores; a single file is not. Bounded on purpose: each worker holds
+        // a parsed document and a Saxon transformer, so unbounded parallelism buys nothing and
+        // costs memory a host cannot predict.
         if (files.Count > 1)
         {
-            Parallel.ForEach(files, file =>
-                reports.Add(Validate(validator, file.FullPath, ruleSet, validateSchema, strict)));
+            var options = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = maxConcurrency ?? Environment.ProcessorCount,
+                CancellationToken = cancellationToken,
+            };
+
+            try
+            {
+                Parallel.ForEach(files, options, file =>
+                    reports.Add(Validate(validator, file.FullPath, ruleSet, validateSchema, strict, cancellationToken)));
+            }
+            catch (OperationCanceledException)
+            {
+                // Report what finished.
+            }
         }
         else
         {
-            reports.Add(Validate(validator, files[0].FullPath, ruleSet, validateSchema, strict));
+            reports.Add(Validate(validator, files[0].FullPath, ruleSet, validateSchema, strict, cancellationToken));
         }
 
         return reports.OrderBy(report => report.File, StringComparer.Ordinal).ToList();
     }
 
     private static Report Validate(
-        InvoiceValidator validator, string file, RuleSet? ruleSet, bool validateSchema, bool strict)
+        InvoiceValidator validator,
+        string file,
+        RuleSet? ruleSet,
+        bool validateSchema,
+        bool strict,
+        CancellationToken cancellationToken)
     {
         try
         {
             var document = InvoiceDocument.Load(file);
-            var result = validator.Validate(document, ruleSet, validateSchema, strict);
+            var result = validator.Validate(document, ruleSet, validateSchema, strict, cancellationToken);
 
             return new Report(
                 file,
@@ -202,6 +233,7 @@ internal sealed record Finding(
     string Severity,
     string Message,
     string Location,
+    string? Value,
     List<string> BusinessTerms,
     string Artefact)
 {
@@ -210,6 +242,7 @@ internal sealed record Finding(
         finding.Severity.ToString(),
         finding.Message,
         finding.Location,
+        finding.Value,
         finding.BusinessTerms.ToList(),
         finding.Artefact);
 }

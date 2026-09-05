@@ -17,4 +17,29 @@ internal static class Corpus
         Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
             .Where(file => string.Equals(Path.GetExtension(file), extension, StringComparison.OrdinalIgnoreCase))
             .Order(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Most of the suite turns into a no-op without the corpora or the rule packs, so a green run on
+    /// a clean clone proves very little. CI sets VERIFACTA_REQUIRE_CORPUS, which turns anything
+    /// missing into a failure instead of silence. Left unset locally, so a fresh clone still runs.
+    /// </summary>
+    internal static bool Required { get; } =
+        Environment.GetEnvironmentVariable("VERIFACTA_REQUIRE_CORPUS") is { Length: > 0 };
+
+    /// <summary>The corpus directory, found from the assembly upwards, or null if it is absent.</summary>
+    internal static string? Root { get; } = Locate();
+
+    private static string? Locate()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(directory.FullName, "corpus");
+            if (Directory.Exists(candidate)) return candidate;
+            directory = directory.Parent;
+        }
+
+        return null;
+    }
 }

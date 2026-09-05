@@ -30,13 +30,20 @@ public sealed class InvoiceValidator
     /// <paramref name="strict"/> to reject a document whose declared specification has no rule set
     /// here, rather than quietly judging it against EN 16931 alone.
     /// </summary>
+    /// <remarks>
+    /// Cancellation is coarse. It is observed before the schema and between rule layers, which is
+    /// every point there is: a Saxon transform, once started, runs to completion. Over a batch that
+    /// is enough to stop promptly; within one large document it is not.
+    /// </remarks>
     public ValidationResult Validate(
         InvoiceDocument document,
         RuleSet? ruleSet = null,
         bool validateSchema = true,
-        bool strict = false)
+        bool strict = false,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var selected = ruleSet ?? RulePackCatalog.RuleSetFor(document.Profile);
         var profileCovered = RulePackCatalog.Covers(document.Profile);
@@ -56,6 +63,7 @@ public sealed class InvoiceValidator
                 "in Verifacta. Judging it against EN 16931 alone would say nothing about the rules it declares.",
                 string.Empty,
                 string.Empty,
+                document.Profile.SpecificationIdentifier,
                 null,
                 [],
                 pack,
@@ -77,9 +85,12 @@ public sealed class InvoiceValidator
         {
             var input = _processor.NewDocumentBuilder().Build(document.Xml.CreateReader());
 
+            var values = Values(input);
+
             foreach (var layer in _catalog.Layers(selected, document.Syntax))
             {
-                findings.AddRange(SvrlReader.Read(Transform(layer, input), pack, Path.GetFileName(layer)));
+                cancellationToken.ThrowIfCancellationRequested();
+                findings.AddRange(SvrlReader.Read(Transform(layer, input), pack, Path.GetFileName(layer), values));
             }
         }
 
@@ -97,6 +108,42 @@ public sealed class InvoiceValidator
         {
             Compiled(layer);
         }
+    }
+
+    /// <summary>
+    /// Resolves a finding's own SVRL location back to the value that failed. The rule message says
+    /// what is wrong; an application showing it to a user needs to say which value, and SVRL does
+    /// not carry one. One compiler per document, because XPathCompiler is not built to be shared
+    /// across threads and the locations are almost all distinct, so caching would not pay.
+    /// </summary>
+    /// <remarks>
+    /// The <c>[not(*)]</c> is the whole trick. A Schematron location is the rule's context node,
+    /// not the value its test looked at, so it is often an element several levels up — and the
+    /// string value of an element with children is every scrap of text beneath it, which is worse
+    /// than saying nothing. Only a leaf gets reported.
+    /// </remarks>
+    private Func<string, string?> Values(XdmNode input)
+    {
+        var compiler = _processor.NewXPathCompiler();
+
+        return location =>
+        {
+            if (location.Length == 0) return null;
+
+            try
+            {
+                var selector = compiler.Compile($"({location})[not(*)]").Load();
+                selector.ContextItem = input;
+
+                return selector.EvaluateSingle()?.StringValue;
+            }
+            catch (SaxonApiException)
+            {
+                // A location that will not evaluate is not worth failing the validation over; the
+                // rule message and the path still stand on their own.
+                return null;
+            }
+        };
     }
 
     private XDocument Transform(string stylesheet, XdmNode input)

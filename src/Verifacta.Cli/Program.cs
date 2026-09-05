@@ -17,7 +17,7 @@ var values = new Dictionary<string, string>(StringComparer.Ordinal);
 
 // Options that take a value are consumed with their argument, otherwise "--rules xrechnung" would
 // treat "xrechnung" as a file to validate.
-string[] valueOptions = ["--rules", "--csv", "--out", "-o", "--lang"];
+string[] valueOptions = ["--rules", "--csv", "--out", "-o", "--lang", "--parallel"];
 
 for (var index = 1; index < args.Length; index++)
 {
@@ -125,8 +125,23 @@ int Validate()
         validator.Warmup();
     }
 
+    // Ctrl+C stops starting new files and reports what finished, rather than losing the run.
+    using var cancellation = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, eventArgs) =>
+    {
+        eventArgs.Cancel = true;
+        Console.Error.WriteLine("Stopping; reporting what has finished.");
+        cancellation.Cancel();
+    };
+
     var reports = Batch.Run(
-        validator, files, RuleSet(), !flags.Contains("--no-schema"), flags.Contains("--strict"));
+        validator,
+        files,
+        RuleSet(),
+        !flags.Contains("--no-schema"),
+        flags.Contains("--strict"),
+        Parallelism(),
+        cancellation.Token);
 
     if (flags.Contains("--json"))
     {
@@ -351,6 +366,7 @@ static void PrintText(Report report, bool showFile)
         var terms = finding.BusinessTerms.Count == 0 ? string.Empty : $" [{string.Join(" ", finding.BusinessTerms)}]";
         Console.WriteLine($"  {finding.Severity,-11} {finding.RuleId,-22}{terms}");
         if (finding.Location.Length > 0) Console.WriteLine($"    {finding.Location}");
+        if (finding.Value is { } value) Console.WriteLine($"    value: {value}");
         Console.WriteLine($"    {finding.Message}");
     }
 
@@ -402,6 +418,15 @@ static void WriteAtomically(string target, Action<TextWriter> render)
     }
 }
 
+int? Parallelism()
+{
+    if (!values.TryGetValue("--parallel", out var value)) return null;
+
+    return int.TryParse(value, out var parsed) && parsed > 0
+        ? parsed
+        : throw new RulePackException($"--parallel needs a positive number, not '{value}'.");
+}
+
 RuleSet? RuleSet() => values.TryGetValue("--rules", out var value)
     ? value.ToLowerInvariant() switch
     {
@@ -433,6 +458,7 @@ static void Usage()
           --no-schema     check business rules only, skipping XML Schema
           --strict        fail an invoice whose declared specification has no rule set
                           here, instead of judging it against EN 16931 alone
+          --parallel <n>  files validated at once (default: one per core)
           -o, --out       where to write rendered HTML; stdout for a single invoice
           --lang          label language for render: de (default) or en
 
