@@ -1,0 +1,55 @@
+name: release
+
+# Publishing is driven by an annotated tag on main: git tag -a v1.0.0 -m "..." && git push origin v1.0.0
+# A NuGet version can never be replaced or deleted, only unlisted, so the full suite runs first.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Take the version from the tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: dotnet build --configuration Release -p:Version=$VERSION -warnaserror
+
+      - name: Restore the rule packs
+        run: dotnet run --project src/Verifacta.Cli --configuration Release --no-build -- rules restore
+
+      - name: Fetch the official test corpora
+        run: python tools/fetch-corpus.py
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build
+
+      - name: Pack
+        run: dotnet pack --configuration Release --no-build -p:Version=$VERSION --output artifacts
+
+      - name: Publish to NuGet
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --api-key "${{ secrets.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+
+      - name: Publish the GitHub release
+        run: gh release create "$GITHUB_REF_NAME" artifacts/*.nupkg --generate-notes --title "$GITHUB_REF_NAME"
