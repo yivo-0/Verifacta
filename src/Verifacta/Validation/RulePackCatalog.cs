@@ -105,7 +105,9 @@ public sealed class RulePackCatalog
         var manifest = JsonSerializer.Deserialize<Manifest>(stream, SerializerOptions)
             ?? throw new RulePackException($"The embedded manifest '{ManifestResource}' could not be read.");
 
-        var root = rulesDirectory ?? Locate() ?? Path.Combine(AppContext.BaseDirectory, "rules");
+        // Normalised so a directory given with forward slashes, or relative, behaves like any
+        // other. VERIFACTA_RULES is routinely pasted from a shell or a container path.
+        var root = Path.GetFullPath(rulesDirectory ?? Locate() ?? Path.Combine(AppContext.BaseDirectory, "rules"));
 
         foreach (var pack in manifest.Packs)
         {
@@ -224,6 +226,12 @@ public sealed class RulePackCatalog
 
     internal IReadOnlyList<string> Layers(RuleSet ruleSet, InvoiceSyntax syntax)
     {
+        var (pack, files) = LayerSource(ruleSet, syntax);
+        return files.Select(pack.PathTo).ToList();
+    }
+
+    private (RulePack Pack, string[] Files) LayerSource(RuleSet ruleSet, InvoiceSyntax syntax)
+    {
         var (packId, files) = (ruleSet, syntax) switch
         {
             (RuleSet.En16931, InvoiceSyntax.Ubl) => ("cen-en16931", new[] { "EN16931-UBL-validation.xslt" }),
@@ -239,8 +247,7 @@ public sealed class RulePackCatalog
             _ => throw new RulePackException($"No rule pack for {ruleSet} in {syntax} syntax."),
         };
 
-        var pack = Pack(packId);
-        return files.Select(pack.PathTo).ToList();
+        return (Pack(packId), files);
     }
 
     /// <summary>
@@ -272,8 +279,7 @@ public sealed class RulePackCatalog
 
     internal string Describe(RuleSet ruleSet, InvoiceSyntax syntax)
     {
-        var directory = Path.GetDirectoryName(Layers(ruleSet, syntax)[0])!;
-        var pack = _packs.Values.First(candidate => candidate.Directory == directory);
+        var pack = LayerSource(ruleSet, syntax).Pack;
         return $"{pack.Id} {pack.Version} ({pack.Repository}@{pack.Tag})";
     }
 
