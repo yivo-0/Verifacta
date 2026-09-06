@@ -30,17 +30,17 @@ jobs:
       # Uses the embedded manifest and plain HTTPS: no Python, no gh CLI. This is the same
       # command a consumer runs, so CI exercises the real restore path.
       - name: Restore the rule packs
-        run: dotnet run --project src/Verifacta.Cli --configuration Release --no-build -- rules restore
+        run: dotnet run --project src/Klarfakt.Cli --configuration Release --no-build -- rules restore
 
       - name: Fetch the official test corpora
         run: python tools/fetch-corpus.py
 
-      # Runs on net8.0 and net10.0, because the library ships both. VERIFACTA_REQUIRE_CORPUS makes
+      # Runs on net8.0 and net10.0, because the library ships both. KLARFAKT_REQUIRE_CORPUS makes
       # a missing corpus or an unrestored rule pack a failure: without it most of the suite turns
       # into no-ops and a green run proves nothing.
       - name: Test
         env:
-          VERIFACTA_REQUIRE_CORPUS: 1
+          KLARFAKT_REQUIRE_CORPUS: 1
         run: dotnet test --configuration Release --no-build
 
       # The unit tests are not enough on their own: a rule pack added for rendering broke
@@ -54,7 +54,7 @@ jobs:
 
       - name: Smoke test the command line
         run: |
-          cli() { dotnet run --project src/Verifacta.Cli --configuration Release --no-build -- "$@"; }
+          cli() { dotnet run --project src/Klarfakt.Cli --configuration Release --no-build -- "$@"; }
 
           # More than ten files, so the rule packs are compiled up front rather than lazily.
           status=0
@@ -79,9 +79,9 @@ jobs:
           path: corpus/*.md
           if-no-files-found: warn
 
-  # Verifacta runs the publishers' own artefacts, so it should agree with the tool the publishers
+  # Klarfakt runs the publishers' own artefacts, so it should agree with the tool the publishers
   # ship. This is the job that proves it instead of asserting it. Java is needed to run the
-  # reference; it is not needed to use Verifacta, which is the whole point.
+  # reference; it is not needed to use Klarfakt, which is the whole point.
   reference:
     runs-on: ubuntu-latest
     env:
@@ -107,13 +107,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .tmp/reference
-          key: reference-${{ hashFiles('src/Verifacta/RulePacks.json', 'tools/reference-diff.py') }}
+          key: reference-${{ hashFiles('src/Klarfakt/RulePacks.json', 'tools/reference-diff.py') }}
 
       - name: Build
         run: dotnet build --configuration Release
 
       - name: Restore the rule packs
-        run: dotnet run --project src/Verifacta.Cli --configuration Release --no-build -- rules restore
+        run: dotnet run --project src/Klarfakt.Cli --configuration Release --no-build -- rules restore
 
       - name: Fetch the official test corpora
         run: python tools/fetch-corpus.py

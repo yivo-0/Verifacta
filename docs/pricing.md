@@ -1,6 +1,6 @@
 # Pricing
 
-Most people reading this owe nothing. **Verifacta is free unless your organisation
+Most people reading this owe nothing. **Klarfakt is free unless your organisation
 turns over more than €1,000,000 a year**, free at any size inside OSI-licensed
 open source, and free always for evaluation, development, CI and internal testing.
 
@@ -20,10 +20,10 @@ where applicable.
 | Rule pack updates | for the term | for the term |
 | Support | email, usually within two working days | one working day, Monday to Friday |
 | | | A named contact, and your issues looked at ahead of the backlog |
-| Suited to | using Verifacta inside your own systems | shipping it inside a product you sell |
+| Suited to | using Klarfakt inside your own systems | shipping it inside a product you sell |
 
 **No metering, ever.** Validation happens in your process, on your hardware.
-Verifacta cannot count your invoices and is not built to.
+Klarfakt cannot count your invoices and is not built to.
 
 ### What a licence keeps
 
@@ -32,7 +32,7 @@ today, stop renewing in a year, and you keep the right to run everything
 published in that year, in production, indefinitely. What lapses is new versions
 and support, not the software already in your pipeline.
 
-That matters more than usual here, because Verifacta is maintained by one person.
+That matters more than usual here, because Klarfakt is maintained by one person.
 You should not have to bet an invoice pipeline on anyone's continued attention.
 
 ### Founding customers
@@ -70,7 +70,7 @@ production? Ask. A straight answer costs one email.
 
 ## If the project stops
 
-**Every version of Verifacta becomes Apache 2.0 four years after it is
+**Every version of Klarfakt becomes Apache 2.0 four years after it is
 published.** The [licence](../LICENSE) sets that as a ceiling and it cannot be
 extended or revoked — version 1.x converts on 2030-09-04, and later versions
 carry their own dates.

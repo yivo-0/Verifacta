@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Klarfakt.Cli/Klarfakt.Cli.csproj" />
+    <Project Path="src/Klarfakt/Klarfakt.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Klarfakt.Tests/Klarfakt.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -6,7 +6,7 @@
     our version numbers, package metadata or signing settings.
   -->
   <PropertyGroup>
-    <VerifactaVersion Condition="'$(VerifactaVersion)' == ''">1.0.0-preview.1</VerifactaVersion>
+    <KlarfaktVersion Condition="'$(KlarfaktVersion)' == ''">1.0.0-preview.1</KlarfaktVersion>
   </PropertyGroup>
 
 </Project>

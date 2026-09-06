@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Klarfakt</PackageId>
+    <Description>Read and validate EN 16931 electronic invoices (UBL, CII, Factur-X) in .NET. No Java, no Node, no native dependencies.</Description>
+    <PackageTags>en16931;e-invoicing;ubl;cii;xrechnung;peppol;factur-x;zugferd</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PDFsharp" Version="6.2.4" />
+    <PackageReference Include="SaxonCS-HE" Version="13.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Not used by Klarfakt. PDFsharp pulls both in transitively at versions carrying published
+      advisories (AngleSharp 1.2.0, System.Security.Cryptography.Xml 10.0.7); these references
+      exist only to raise them to patched versions. Remove them when PDFsharp ships newer
+      dependencies of its own, not before — dotnet build -warnaserror is what catches a regression.
+    -->
+    <PackageReference Include="AngleSharp" Version="1.7.3" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="RulePacks.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Klarfakt.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

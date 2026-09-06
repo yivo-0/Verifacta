@@ -1,24 +1,24 @@
-# Verifacta
+# Klarfakt
 
-[![ci](https://github.com/yivo-0/Verifacta/actions/workflows/ci.yml/badge.svg)](https://github.com/yivo-0/Verifacta/actions/workflows/ci.yml)
+[![ci](https://github.com/yivo-0/Klarfakt/actions/workflows/ci.yml/badge.svg)](https://github.com/yivo-0/Klarfakt/actions/workflows/ci.yml)
 
 Read and validate EN 16931 electronic invoices in .NET — **no Java, no Node.js, no native
 dependencies, and nothing leaves your server.**
 
-Verifacta runs the publishers' **own compiled Schematron** in-process: the same artefacts the German
+Klarfakt runs the publishers' **own compiled Schematron** in-process: the same artefacts the German
 reference validator executes, fetched from their pinned upstream releases and checked against a
 recorded SHA-256. Not a reimplementation of the rules, and not a copy vendored into this repository.
-When a verdict here disagrees with KoSIT's, that is a bug in Verifacta — and the CEN rule suite is
+When a verdict here disagrees with KoSIT's, that is a bug in Klarfakt — and the CEN rule suite is
 replayed test by test to keep it that way.
 
 > **Not on NuGet yet** — `1.0.0-preview.1` is pending. Until then, clone and build:
 >
 > ```bash
-> git clone https://github.com/yivo-0/Verifacta && cd Verifacta
-> dotnet build && dotnet run --project src/Verifacta.Cli -- rules restore
+> git clone https://github.com/yivo-0/Klarfakt && cd Klarfakt
+> dotnet build && dotnet run --project src/Klarfakt.Cli -- rules restore
 > ```
 >
-> The `verifacta` examples below then read as `dotnet run --project src/Verifacta.Cli -- …`.
+> The `klarfakt` examples below then read as `dotnet run --project src/Klarfakt.Cli -- …`.
 
 [**samples/Quickstart**](samples/Quickstart) is the whole thing end to end — restore, load, validate,
 read the findings — in fifty lines, plus a [Dockerfile](samples/Quickstart/Dockerfile) that bakes the
@@ -27,8 +27,8 @@ and runs that sample against the packed `.nupkg` from a clean directory, so the 
 are tested rather than hoped for.
 
 ```csharp
-using Verifacta;
-using Verifacta.Validation;
+using Klarfakt;
+using Klarfakt.Validation;
 
 // Compile the rule packs once and keep the validator: compiling takes seconds, validating takes
 // milliseconds. It is thread-safe.
@@ -68,16 +68,16 @@ The rule artefacts are **not committed**: the CEN rules are EUPL-1.2 and the KoS
 are Apache-2.0, so they stay under their publishers' terms and are downloaded on request.
 
 ```bash
-verifacta rules restore    # or: RulePackCatalog.RestoreAsync()
-verifacta rules verify
+klarfakt rules restore    # or: RulePackCatalog.RestoreAsync()
+klarfakt rules verify
 ```
 
 That needs nothing but the .NET SDK. The manifest is embedded in the assembly, the download is
 plain HTTPS from the pinned upstream release, and every file is checked against its recorded
-SHA-256 before it is written — a mismatch fails rather than being used. **Nothing else in Verifacta
+SHA-256 before it is written — a mismatch fails rather than being used. **Nothing else in Klarfakt
 touches the network**; validation is entirely local.
 
-Set `VERIFACTA_RULES` to point at an artefact directory you manage yourself, for offline or
+Set `KLARFAKT_RULES` to point at an artefact directory you manage yourself, for offline or
 air-gapped deployments. `tools/fetch-rules.py` is the maintainer script for bumping the pinned
 versions and regenerating the manifest; consumers never need it.
 
@@ -89,9 +89,9 @@ versions and regenerating the manifest; consumers never need it.
 | `xrechnung` | 3.0.2 | itplr-kosit/validator-configuration-xrechnung | Apache-2.0 |
 | `visualization` | 3.0.2 | itplr-kosit/xrechnung-visualization | Apache-2.0 |
 
-`src/Verifacta/RulePacks.json` records the release tag, licence and SHA-256 of every artefact. A pack
+`src/Klarfakt/RulePacks.json` records the release tag, licence and SHA-256 of every artefact. A pack
 is checked against it the first time it is used in a process, so an artefact that has been altered
-on disk stops validation rather than quietly changing the verdict. `verifacta rules verify` and
+on disk stops validation rather than quietly changing the verdict. `klarfakt rules verify` and
 `RulePackCatalog.VerifyIntegrity()` check everything on demand.
 
 ### Staying current
@@ -108,15 +108,15 @@ before a new pack version ships.
 ## Command line
 
 ```bash
-verifacta validate invoice.xml
-verifacta render invoice.pdf -o invoice.html
-verifacta info invoice.pdf
+klarfakt validate invoice.xml
+klarfakt render invoice.pdf -o invoice.html
+klarfakt info invoice.pdf
 ```
 
 Point it at a folder to find out how much of an existing archive an access point would reject:
 
 ```bash
-verifacta validate ./invoices --recursive --csv report.csv
+klarfakt validate ./invoices --recursive --csv report.csv
 ```
 
 ```
@@ -146,11 +146,11 @@ pack versions behind it, whether the XML Schema was actually checked (`SchemaChe
 the specification the document declares has a rule set here at all (`ProfileCovered`). All four
 reach the JSON and CSV output.
 
-A document declaring a specification Verifacta has no rules for — a national CIUS it does not ship,
+A document declaring a specification Klarfakt has no rules for — a national CIUS it does not ship,
 or Factur-X's own profile rules — is judged against EN 16931 and says so. `--strict` turns that into
 a failure instead.
 
-Validating a hybrid PDF validates **the XML inside it**. Verifacta says nothing about whether the
+Validating a hybrid PDF validates **the XML inside it**. Klarfakt says nothing about whether the
 PDF itself conforms to PDF/A-3 or carries the XMP metadata Factur-X requires.
 
 Findings carry the offending value where the rule pointed at a single one. Many EN 16931 rules
@@ -179,7 +179,7 @@ Every corpus source is pinned to a release tag or commit, so the verification is
 rather than drifting with upstream. The live pass count is on the CI badge above.
 
 - **The German reference validator, verdict for verdict.** Every CI run puts 143 invoices through
-  both Verifacta and [KoSIT's validationtool](https://github.com/itplr-kosit/validator) — the tool
+  both Klarfakt and [KoSIT's validationtool](https://github.com/itplr-kosit/validator) — the tool
   the publishers ship — using the same scenario configuration release, and diffs the rule ids each
   reports. **100 of 100 comparable files agree rule for rule.** The other 43 are recorded with the
   reason they cannot be compared, usually that the reference matched no scenario for them. A
@@ -193,7 +193,7 @@ rather than drifting with upstream. The live pass count is on the CI badge above
 - **Real hybrid PDFs** — 23 of them, including a PDF/A-4 variant, a `zugferd-invoice.xml`
   attachment, an encrypted PDF, one with no attachment, and a truncated one.
 
-Run it yourself: `verifacta rules restore && python tools/fetch-corpus.py && dotnet test`
+Run it yourself: `klarfakt rules restore && python tools/fetch-corpus.py && dotnet test`
 (the corpus fetch needs Python and the GitHub CLI; the library itself does not).
 The suite writes `corpus/report.md`, `corpus/validation-report.md` and `corpus/pdf-report.md`,
 which CI also uploads as artifacts on every run.
@@ -218,7 +218,7 @@ processor, and the structured XML is the legally archived original in any case.
 ## Licence
 
 **Free unless your organisation turns over more than €1,000,000 a year.** Free at any size if you
-ship Verifacta inside OSI-licensed open source. Free always for evaluation, development, CI and
+ship Klarfakt inside OSI-licensed open source. Free always for evaluation, development, CI and
 internal testing.
 
 Above that threshold and in production, a commercial licence is **€690 a year** for unlimited
@@ -234,7 +234,7 @@ what actually governs most users.
 For a commercial licence, or if you are unsure which applies to you, email oleganickij02@gmail.com.
 
 Third-party components and the licences of the validation artefacts are listed in [NOTICE](NOTICE).
-Verifacta depends on [SaxonCS-HE](https://www.nuget.org/packages/SaxonCS-HE) (Saxonica, MPL-2.0) for
+Klarfakt depends on [SaxonCS-HE](https://www.nuget.org/packages/SaxonCS-HE) (Saxonica, MPL-2.0) for
 XSLT 3.0 and [PDFsharp](https://www.nuget.org/packages/PDFsharp) (empira, MIT) for PDF attachments.
 Both are pure managed. The rule artefacts themselves are never redistributed — they are fetched from
 their publishers and stay under their own terms.
@@ -242,4 +242,4 @@ their publishers and stay under their own terms.
 ## Requirements
 
 .NET 8 or .NET 10, and nothing else. Python 3 and the GitHub CLI are needed only to fetch the test
-corpora or to bump the pinned rule packs — neither is required to use Verifacta.
+corpora or to bump the pinned rule packs — neither is required to use Klarfakt.

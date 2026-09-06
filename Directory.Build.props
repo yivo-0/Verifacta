@@ -8,8 +8,8 @@
     <Version>1.0.0</Version>
     <Authors>Oleh Yanytskyi</Authors>
     <Copyright>Copyright (c) 2026 Oleh Yanytskyi</Copyright>
-    <PackageProjectUrl>https://github.com/yivo-0/Verifacta</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/yivo-0/Verifacta</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/yivo-0/Klarfakt</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yivo-0/Klarfakt</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <!-- BSL 1.1 has no SPDX expression, so the licence travels as a file. -->
     <PackageLicenseFile>LICENSE</PackageLicenseFile>

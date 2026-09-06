@@ -1,12 +1,12 @@
 # Security
 
-Verifacta parses files that arrive from outside your organisation. An invoice is
+Klarfakt parses files that arrive from outside your organisation. An invoice is
 sent to you by a supplier, and a supplier can be anyone. The library is written on
 that assumption, and reports about where it fails to hold are welcome.
 
 ## Reporting a vulnerability
 
-Use [private vulnerability reporting](https://github.com/yivo-0/Verifacta/security/advisories/new),
+Use [private vulnerability reporting](https://github.com/yivo-0/Klarfakt/security/advisories/new),
 or email **oleganickij02@gmail.com**. Please do not open a public issue for
 anything that could be exploited.
 

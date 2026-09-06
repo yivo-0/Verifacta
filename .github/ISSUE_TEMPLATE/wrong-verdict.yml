@@ -1,11 +1,11 @@
 name: Wrong verdict
-description: Verifacta accepted an invoice it should reject, or rejected one it should accept
+description: Klarfakt accepted an invoice it should reject, or rejected one it should accept
 labels: [bug]
 body:
   - type: markdown
     attributes:
       value: |
-        This is the most valuable kind of report. Verifacta runs the publishers' own artefacts, so
+        This is the most valuable kind of report. Klarfakt runs the publishers' own artefacts, so
         a disagreement with the reference validator is a defect here rather than a difference of
         opinion.
 
@@ -23,8 +23,8 @@ body:
   - type: textarea
     id: actual
     attributes:
-      label: What Verifacta reported
-      description: Output of `verifacta validate <file> --json`, or the findings your code saw.
+      label: What Klarfakt reported
+      description: Output of `klarfakt validate <file> --json`, or the findings your code saw.
       render: shell
     validations:
       required: true
@@ -47,7 +47,7 @@ body:
     id: packs
     attributes:
       label: Rule packs
-      description: Output of `verifacta rules verify`.
+      description: Output of `klarfakt rules verify`.
       placeholder: xrechnung 3.0.2, cen-en16931 1.3.16 …
     validations:
       required: true
@@ -55,6 +55,6 @@ body:
   - type: input
     id: version
     attributes:
-      label: Verifacta version
+      label: Klarfakt version
     validations:
       required: true

@@ -14,7 +14,7 @@ import subprocess
 import sys
 
 MANIFEST = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "src", "Verifacta", "RulePacks.json")
+    os.path.dirname(os.path.abspath(__file__)), "..", "src", "Klarfakt", "RulePacks.json")
 
 ISSUE_TITLE = "Rule packs behind upstream"
 ISSUE_LABEL = "rule-packs"
@@ -70,7 +70,7 @@ def main():
     body += [
         "",
         "To bump: edit the version and asset names in `tools/fetch-rules.py`, run it, commit the",
-        "regenerated `src/Verifacta/RulePacks.json`, and review the corpus reports for changed",
+        "regenerated `src/Klarfakt/RulePacks.json`, and review the corpus reports for changed",
         "verdicts before releasing. A rule update can invalidate invoices that previously passed.",
     ]
     report = "\n".join(body)

@@ -3,9 +3,9 @@
 ## Getting it running
 
 ```bash
-git clone https://github.com/yivo-0/Verifacta && cd Verifacta
+git clone https://github.com/yivo-0/Klarfakt && cd Klarfakt
 dotnet build
-dotnet run --project src/Verifacta.Cli -- rules restore
+dotnet run --project src/Klarfakt.Cli -- rules restore
 dotnet test
 ```
 
@@ -22,7 +22,7 @@ dotnet test
 ```
 
 Without them most of the suite quietly becomes a no-op. CI sets
-`VERIFACTA_REQUIRE_CORPUS=1`, which turns anything missing into a failure, and
+`KLARFAKT_REQUIRE_CORPUS=1`, which turns anything missing into a failure, and
 each run writes `corpus/coverage-<framework>.md` recording what it actually had.
 
 ## What is likely to be accepted
@@ -31,13 +31,13 @@ Bugs, especially anything under [Security](SECURITY.md). A document that crashes
 hangs or produces a verdict the publishers' own tools disagree with is the most
 valuable thing you can send — with the file, if you can share it.
 
-The [open issues](https://github.com/yivo-0/Verifacta/issues) are the current
+The [open issues](https://github.com/yivo-0/Klarfakt/issues) are the current
 picture of known limitations. Several are marked `limitation` rather than `bug`
 because they are boundaries rather than defects.
 
 ## What is likely to be declined
 
-- **Reimplementing a rule by hand.** Verifacta runs the publishers' compiled
+- **Reimplementing a rule by hand.** Klarfakt runs the publishers' compiled
   artefacts. A rule expressed in C# would be a second opinion, and the whole
   value of this library is that there is only one.
 - **Vendoring the artefacts into the repository.** They are EUPL-1.2 and

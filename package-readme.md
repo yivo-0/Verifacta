@@ -1,16 +1,16 @@
-# Verifacta
+# Klarfakt
 
 Read and validate EN 16931 electronic invoices in .NET — **no Java, no Node.js, no native
 dependencies, and nothing leaves your server.**
 
-Verifacta runs the publishers' own compiled Schematron in-process: the same artefacts the German
+Klarfakt runs the publishers' own compiled Schematron in-process: the same artefacts the German
 reference validator executes, fetched from their pinned upstream releases and checked against a
 recorded SHA-256. **100 of 100 comparable files agree rule for rule with KoSIT's validationtool** on
 every CI run.
 
 ```csharp
-using Verifacta;
-using Verifacta.Validation;
+using Klarfakt;
+using Klarfakt.Validation;
 
 var catalog = RulePackCatalog.Load();
 if (!catalog.IsRestored) await catalog.RestoreAsync();   // once, at deployment or build
@@ -51,12 +51,12 @@ They are **not** in this package. The CEN rules are EUPL-1.2 and the KoSIT confi
 Apache-2.0, so they stay with their publishers and are downloaded on request:
 
 ```bash
-verifacta rules restore
+klarfakt rules restore
 ```
 
 Plain HTTPS from the pinned upstream release, every file checked against the SHA-256 in the embedded
-manifest before it is written, and again before first use. **Nothing else in Verifacta touches the
-network.** Set `VERIFACTA_RULES` to point at a directory you manage yourself for air-gapped
+manifest before it is written, and again before first use. **Nothing else in Klarfakt touches the
+network.** Set `KLARFAKT_RULES` to point at a directory you manage yourself for air-gapped
 deployments.
 
 ## Licence
@@ -69,4 +69,4 @@ developers, deployments and validations, covering every version released during 
 permanently. Every version becomes Apache 2.0 four years after it ships — 1.x on 2030-09-04. Terms
 are Business Source License 1.1, which is not an OSI-approved licence.
 
-[Documentation, samples and source](https://github.com/yivo-0/Verifacta) · oleganickij02@gmail.com
+[Documentation, samples and source](https://github.com/yivo-0/Klarfakt) · oleganickij02@gmail.com
