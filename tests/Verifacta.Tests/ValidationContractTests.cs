@@ -18,9 +18,50 @@ public class ValidationContractTests(ValidatorFixture fixture)
     [InlineData("urn:factur-x.eu:1p0:basic", false)]
     [InlineData("urn:some.authority:cius:2029", false)]
     [InlineData(null, false)]
+    // A national CIUS is declared by suffixing the EN 16931 identifier, so it parses as EN 16931
+    // and used to be reported as fully covered. NLCIUS is the one in production use.
+    [InlineData("urn:cen.eu:en16931:2017#compliant#urn:fdc:nen.nl:nlcius:v1.0", false)]
+    [InlineData("urn:cen.eu:en16931:2017#compliant#urn:some.authority:cius:2029", false)]
+    [InlineData("urn:cen.eu:en16931:2017#conformant#urn:some.authority:extension:1.0", false)]
+    // One version of each pack is shipped. A name match is not a rule match.
+    [InlineData("urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_99.0", false)]
+    [InlineData("urn:fdc:peppol.eu:2017:poacc:billing:4.0", false)]
     public void Knows_which_declared_specifications_have_rules_of_their_own(string? identifier, bool covered)
     {
         Assert.Equal(covered, RulePackCatalog.Covers(InvoiceProfile.Parse(identifier)));
+    }
+
+    [Fact]
+    public void The_covered_versions_match_the_packs_actually_shipped()
+    {
+        if (!fixture.Available) return;
+
+        // Bumping a pack without revisiting Covers() would quietly start claiming coverage of a
+        // version that is no longer the one on disk, or refusing the one that is.
+        Assert.StartsWith(
+            RulePackCatalog.XRechnungProfileVersion,
+            fixture.Catalog!.Pack("xrechnung").Version,
+            StringComparison.Ordinal);
+
+        Assert.StartsWith(
+            RulePackCatalog.PeppolProfileVersion,
+            fixture.Catalog.Pack("peppol-bis").Version,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Strict_mode_refuses_a_national_cius_with_no_rules_here()
+    {
+        if (!fixture.Available) return;
+
+        var document = WithProfile("urn:cen.eu:en16931:2017#compliant#urn:fdc:nen.nl:nlcius:v1.0");
+
+        Assert.False(RulePackCatalog.Covers(document.Profile));
+
+        var result = fixture.Validator!.Validate(document, strict: true);
+
+        Assert.False(result.ProfileCovered);
+        Assert.Contains(result.Findings, finding => finding.RuleId == InvoiceValidator.ProfileRuleId);
     }
 
     [Fact]

@@ -78,12 +78,19 @@ internal static class Batch
             }
             catch (OperationCanceledException)
             {
-                // Report what finished.
+                // Keep what finished. The caller reports the run as incomplete from the token, so a
+                // cancelled run cannot be mistaken for a clean archive.
             }
         }
         else
         {
-            reports.Add(Validate(validator, files[0].FullPath, ruleSet, validateSchema, strict, cancellationToken));
+            try
+            {
+                reports.Add(Validate(validator, files[0].FullPath, ruleSet, validateSchema, strict, cancellationToken));
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
 
         return reports.OrderBy(report => report.File, StringComparer.Ordinal).ToList();
@@ -157,8 +164,15 @@ internal static class Batch
     }
 
     /// <summary>The part an ISV actually reads: how much of the archive would be rejected, and why.</summary>
-    internal static void WriteSummary(TextWriter writer, IReadOnlyList<Report> reports)
+    internal static void WriteSummary(TextWriter writer, IReadOnlyList<Report> reports, int requested = 0)
     {
+        if (requested > reports.Count)
+        {
+            writer.WriteLine();
+            writer.WriteLine($"Stopped early: {reports.Count} of {requested} files were checked. " +
+                             "The remainder were not looked at.");
+        }
+
         var valid = reports.Count(report => report.Status == "valid");
         var invalid = reports.Count(report => report.Status == "invalid");
         var unreadable = reports.Count(report => report.Status == "error");

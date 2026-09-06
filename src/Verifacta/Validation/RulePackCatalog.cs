@@ -242,17 +242,34 @@ public sealed class RulePackCatalog
         _ => RuleSet.En16931,
     };
 
+    /// <summary>The profile versions the shipped packs implement, as they appear in an identifier.</summary>
+    internal const string XRechnungProfileVersion = "3.0";
+
+    internal const string PeppolProfileVersion = "3.0";
+
     /// <summary>
     /// Whether the specification a document declares has a rule set of its own here. Anything else
     /// falls back to EN 16931 — a sound verdict on the core rules, and no statement at all about the
-    /// national or sector rules the document says it follows. Factur-X is a fallback: its own
-    /// profile rules are not shipped.
+    /// national or sector rules the document says it follows.
     /// </summary>
+    /// <remarks>
+    /// The kind alone is not enough to answer this. One version of each pack is shipped, so
+    /// <c>xrechnung_99.0</c> is not covered by the 3.0 rules merely because the name matched. And a
+    /// CIUS or extension is declared by suffixing the EN 16931 identifier with <c>#</c> and its own
+    /// URN — NLCIUS and every other national profile look exactly like plain EN 16931 to a check
+    /// that only reads the kind, which is how they used to be reported as fully covered.
+    /// </remarks>
     public static bool Covers(InvoiceProfile profile)
     {
         ArgumentNullException.ThrowIfNull(profile);
 
-        return profile.Kind is ProfileKind.En16931 or ProfileKind.XRechnung or ProfileKind.PeppolBisBilling3;
+        return profile.Kind switch
+        {
+            ProfileKind.XRechnung => profile.Version == XRechnungProfileVersion,
+            ProfileKind.PeppolBisBilling3 => profile.Version == PeppolProfileVersion,
+            ProfileKind.En16931 => profile.SpecificationIdentifier?.Contains('#') == false,
+            _ => false,
+        };
     }
 
     /// <summary>The schema a document of this shape is judged against, for labelling findings.</summary>
