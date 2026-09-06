@@ -1,0 +1,58 @@
+name: Bug
+description: Something crashes, hangs, or behaves differently from the documentation
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a verdict that looks wrong, use **Wrong verdict** instead — it asks for different
+        things. For anything a hostile document could trigger, please use
+        [private reporting](https://github.com/yivo-0/Verifacta/security/advisories/new) rather
+        than a public issue.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The smallest sequence that shows it. A failing test is ideal.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: Stack trace, error message, or the command output.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: Verifacta version
+    validations:
+      required: true
+
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Target framework
+      options:
+        - net8.0
+        - net10.0
+        - other
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11, Ubuntu 24.04, alpine container …

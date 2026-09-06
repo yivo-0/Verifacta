@@ -1,0 +1,20 @@
+version: 2
+
+updates:
+  # Two of the package references exist only to pin transitive dependencies of PDFsharp away from
+  # published advisories. Dependabot is what notices when those pins can move or need to.
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      transitive-pins:
+        patterns:
+          - AngleSharp
+          - System.Security.Cryptography.Xml
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
