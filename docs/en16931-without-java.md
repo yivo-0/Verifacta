@@ -199,7 +199,7 @@ artefact altered on disk stops validation rather than quietly changing a verdict
 Validating an EN 16931 invoice in .NET is now an ordinary problem. No JVM, no Node
 process, no uploading a customer's invoice to somebody else's API. The library I
 built is [Verifacta](https://github.com/yivo-0/Verifacta) — free below €1,000,000
-of annual revenue and free inside OSI-licensed open source — but the more useful
+of annual revenue and free inside OSI-licensed open source, €690 a year above that — but the more useful
 thing in this post is probably the four gotchas, which apply to anyone running
 Schematron on .NET regardless of what they build with it.
 

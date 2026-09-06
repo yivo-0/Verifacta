@@ -221,12 +221,15 @@ processor, and the structured XML is the legally archived original in any case.
 ship Verifacta inside OSI-licensed open source. Free always for evaluation, development, CI and
 internal testing.
 
-Over that threshold and using it in production, a commercial licence is required — that is the
-part that pays for the rule packs being kept current.
+Above that threshold and in production, a commercial licence is **€690 a year** for unlimited
+developers, deployments and validations — [pricing](docs/pricing.md). It covers every version
+released during the term, permanently, so lapsing costs you updates rather than the software already
+in your pipeline. That is also what pays for the rule packs being kept current.
 
-On **2030-09-04** this version becomes Apache 2.0 automatically, so there is no lock-in if the
-project stops being maintained. The terms are [Business Source License 1.1](LICENSE), which is not
-an OSI-approved licence; the grant above is what actually governs most users.
+**Every version becomes Apache 2.0 four years after it ships** — 1.x on 2030-09-04 — so there is no
+lock-in if the project stops being maintained. The terms are
+[Business Source License 1.1](LICENSE), which is not an OSI-approved licence; the grant above is
+what actually governs most users.
 
 For a commercial licence, or if you are unsure which applies to you, email oleganickij02@gmail.com.
 
