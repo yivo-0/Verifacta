@@ -68,6 +68,24 @@ public class DocumentLimitsTests
     }
 
     [Fact]
+    public void Refuses_a_document_whose_attachments_add_up()
+    {
+        // Eight attachments, each comfortably inside the per-attachment limit and together well
+        // past the total. A cap on one attachment bounds nothing without this.
+        var pdf = PdfWithFlateAttachments(Enumerable.Range(0, 8).Select(_ => 4 * 1024 * 1024).ToArray());
+
+        var exception = Assert.Throws<UnsupportedDocumentException>(
+            () => InvoiceDocument.Load(new MemoryStream(pdf), new DocumentLimits
+            {
+                MaxAttachmentBytes = 8 * 1024 * 1024,
+                MaxTotalAttachmentBytes = 12 * 1024 * 1024,
+            }));
+
+        Assert.Contains("come to over", exception.Message);
+        Assert.Contains("MaxTotalAttachmentBytes", exception.Message);
+    }
+
+    [Fact]
     public void Reads_a_compressed_attachment_that_fits()
     {
         var pdf = PdfWithFlateAttachment(0, Encoding.UTF8.GetBytes(Padded(4)));
@@ -79,18 +97,38 @@ public class DocumentLimitsTests
     }
 
     /// <summary>A PDF whose only attachment is a Flate stream of <paramref name="zeros"/> bytes.</summary>
-    private static byte[] PdfWithFlateAttachment(int zeros, byte[]? content = null)
+    private static byte[] PdfWithFlateAttachment(int zeros, byte[]? content = null) =>
+        PdfWithFlateAttachments([zeros], content);
+
+    /// <summary>
+    /// A PDF carrying one Flate attachment per size given. Object numbering: 1-3 are the catalogue
+    /// and page, 4 is the name tree, then a file specification and a stream for each attachment.
+    /// </summary>
+    private static byte[] PdfWithFlateAttachments(int[] sizes, byte[]? content = null)
     {
-        var payload = Deflate(content ?? new byte[zeros]);
+        var payloads = sizes.Select(size => Deflate(content ?? new byte[size])).ToArray();
+        var first = 5;
+
+        // The first is named as the invoice so a single-attachment document is a hybrid invoice;
+        // the rest are only there to add up.
+        var fileNames = sizes.Select((_, i) => i == 0 ? "factur-x.xml" : $"attachment-{i}.xml").ToArray();
+        var names = string.Join(" ", fileNames.Select((name, i) => $"({name}) {first + i * 2} 0 R"));
 
         var objects = new List<byte[]>
         {
             "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>"u8.ToArray(),
             "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"u8.ToArray(),
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>"u8.ToArray(),
-            "<< /Names [(factur-x.xml) 5 0 R] >>"u8.ToArray(),
-            "<< /Type /Filespec /F (factur-x.xml) /UF (factur-x.xml) /EF << /F 6 0 R >> >>"u8.ToArray(),
+            Encoding.ASCII.GetBytes($"<< /Names [{names}] >>"),
         };
+
+        for (var index = 0; index < sizes.Length; index++)
+        {
+            var file = fileNames[index];
+            objects.Add(Encoding.ASCII.GetBytes(
+                $"<< /Type /Filespec /F ({file}) /UF ({file}) /EF << /F {first + index * 2 + 1} 0 R >> >>"));
+            objects.Add([]);   // placeholder; the stream object is written separately below
+        }
 
         var pdf = new MemoryStream();
         Append(pdf, "%PDF-1.7\n");
@@ -100,23 +138,30 @@ public class DocumentLimitsTests
         {
             offsets.Add(pdf.Position);
             Append(pdf, $"{index + 1} 0 obj\n");
-            pdf.Write(objects[index]);
+
+            if (objects[index].Length == 0)
+            {
+                var payload = payloads[(index - first) / 2];
+                Append(pdf, $"<< /Type /EmbeddedFile /Filter /FlateDecode /Length {payload.Length} >>\nstream\n");
+                pdf.Write(payload);
+                Append(pdf, "\nendstream");
+            }
+            else
+            {
+                pdf.Write(objects[index]);
+            }
+
             Append(pdf, "\nendobj\n");
         }
 
-        offsets.Add(pdf.Position);
-        Append(pdf, $"6 0 obj\n<< /Type /EmbeddedFile /Filter /FlateDecode /Length {payload.Length} >>\nstream\n");
-        pdf.Write(payload);
-        Append(pdf, "\nendstream\nendobj\n");
-
         var startXref = pdf.Position;
-        Append(pdf, $"xref\n0 {objects.Count + 2}\n0000000000 65535 f \n");
+        Append(pdf, $"xref\n0 {objects.Count + 1}\n0000000000 65535 f \n");
         foreach (var offset in offsets)
         {
             Append(pdf, $"{offset:D10} 00000 n \n");
         }
 
-        Append(pdf, $"trailer\n<< /Size {objects.Count + 2} /Root 1 0 R >>\nstartxref\n{startXref}\n%%EOF\n");
+        Append(pdf, $"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R >>\nstartxref\n{startXref}\n%%EOF\n");
         return pdf.ToArray();
     }
 

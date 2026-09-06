@@ -17,6 +17,13 @@ public sealed class DocumentLimits
     public long MaxAttachmentBytes { get; init; } = 32L * 1024 * 1024;
 
     /// <summary>
+    /// The most that will be extracted from one document in total. Without it, a per-attachment
+    /// limit bounds nothing useful: a PDF may carry as many embedded files as it likes, each one
+    /// just under the individual cap. 64 MB.
+    /// </summary>
+    public long MaxTotalAttachmentBytes { get; init; } = 64L * 1024 * 1024;
+
+    /// <summary>
     /// How far the embedded-files name tree of a PDF will be walked. A real hybrid invoice uses a
     /// handful of nodes; the cap is what stops a tree built only to be walked.
     /// </summary>

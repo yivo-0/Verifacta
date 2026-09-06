@@ -38,6 +38,11 @@ CACHE = os.path.join(ROOT, ".tmp", "reference")
 # Keyed by file name, valued by a reason that has to be written by a person who checked it.
 EXPECTED: dict[str, str] = {}
 
+# A floor on how much has to be comparable for a run to mean anything, set from the corpora this
+# defaults to. Without it, anything that stopped Verifacta reading files reported perfect agreement
+# about nothing at all and exited zero. Raise it when the corpora grow.
+MINIMUM_COMPARABLE = 90
+
 MESSAGE = re.compile(
     r'<rep:message\b[^>]*?level="(?P<level>[^"]*)"[^>]*?code="(?P<code>[^"]*)"', re.DOTALL)
 MESSAGE_REVERSED = re.compile(
@@ -208,8 +213,12 @@ def main():
             skipped.append((name, "the reference matched no scenario"))
             continue
 
+        # The reference judged this document. Verifacta failing to read it is a disagreement about
+        # the document, not a reason to drop it from the count — anything that broke every read
+        # used to report "0/0 agree" and exit 0.
         if mine is None or mine[0] == "error":
-            skipped.append((name, "Verifacta does not read this document"))
+            disagreements.append((name, theirs, {"(Verifacta could not process this file)"}))
+            rows.append((name, theirs, theirs, set()))
             continue
 
         missed, extra = theirs - mine[1], mine[1] - theirs
@@ -223,6 +232,12 @@ def main():
 
     print(f"\n{len(rows) - len(disagreements)}/{len(rows)} comparable files agree rule for rule "
           f"with the reference validator ({len(skipped)} not comparable)")
+
+    # A run that compared nothing is not a run that agreed about everything.
+    if len(rows) < MINIMUM_COMPARABLE:
+        print(f"\nonly {len(rows)} files were comparable, expected at least {MINIMUM_COMPARABLE}. "
+              "Nothing meaningful was checked.")
+        return 1
 
     if unexpected:
         for name, missed, extra in unexpected:

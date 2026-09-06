@@ -149,10 +149,13 @@ int Validate()
     }
     else if (values.TryGetValue("--csv", out var csv))
     {
-        using var writer = new StreamWriter(csv);
-        Batch.WriteCsv(writer, reports);
+        using (var writer = new StreamWriter(csv))
+        {
+            Batch.WriteCsv(writer, reports);
+        }
+
         Console.WriteLine($"Wrote {reports.Count} rows to {csv}");
-        Batch.WriteSummary(Console.Out, reports);
+        Batch.WriteSummary(Console.Out, reports, files.Count);
     }
     else
     {
@@ -161,7 +164,15 @@ int Validate()
             PrintText(report, files.Count > 1);
         }
 
-        if (files.Count > 1) Batch.WriteSummary(Console.Out, reports);
+        if (files.Count > 1) Batch.WriteSummary(Console.Out, reports, files.Count);
+    }
+
+    // Before the verdict: a run that stopped early has not judged the archive, and a caller
+    // scripting this would otherwise read "no errors in three files" as "the archive is clean".
+    if (cancellation.IsCancellationRequested)
+    {
+        Error($"Cancelled after {reports.Count} of {files.Count} files.");
+        return ExitCode.Cancelled;
     }
 
     if (reports.Any(report => report.Status == "error")) return ExitCode.Failed;
@@ -473,10 +484,11 @@ static void Usage()
         folder to see how much of an existing archive would be rejected.
 
         Exit codes:
-          0  valid
-          1  validation errors
-          2  a file could not be processed
-          64 usage error
+          0   valid
+          1   validation errors
+          2   a file could not be processed
+          64  usage error
+          130 stopped with Ctrl+C before every file was checked
         """);
 }
 
@@ -486,6 +498,9 @@ internal static class ExitCode
     internal const int Invalid = 1;
     internal const int Failed = 2;
     internal const int Usage = 64;
+
+    /// <summary>The conventional shell code for a run ended by SIGINT.</summary>
+    internal const int Cancelled = 130;
 }
 
 internal static class JsonDefaults

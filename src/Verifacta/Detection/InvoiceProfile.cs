@@ -58,9 +58,17 @@ public sealed partial class InvoiceProfile
             return new InvoiceProfile(id, businessProcess, ProfileKind.XRechnung, xrechnung.Groups[1].Value, null, isExtension);
         }
 
+        // The version is read from the identifier rather than assumed. A hardcoded "3.0" reported
+        // a Peppol BIS 4.0 document as 3.0, which then looked like a profile we fully cover.
+        if (PeppolPattern().Match(value) is { Success: true } peppol)
+        {
+            return new InvoiceProfile(
+                id, businessProcess, ProfileKind.PeppolBisBilling3, peppol.Groups[1].Value, null, isExtension);
+        }
+
         if (value.Contains("peppol.eu:2017:poacc:billing", StringComparison.Ordinal))
         {
-            return new InvoiceProfile(id, businessProcess, ProfileKind.PeppolBisBilling3, "3.0", null, isExtension);
+            return new InvoiceProfile(id, businessProcess, ProfileKind.PeppolBisBilling3, null, null, isExtension);
         }
 
         if (value.Contains("factur-x.eu", StringComparison.Ordinal) ||
@@ -97,4 +105,7 @@ public sealed partial class InvoiceProfile
 
     [GeneratedRegex(@"(\d+)p(\d+)", RegexOptions.CultureInvariant)]
     private static partial Regex HybridVersionPattern();
+
+    [GeneratedRegex(@"peppol\.eu:2017:poacc:billing:(\d+\.\d+)", RegexOptions.CultureInvariant)]
+    private static partial Regex PeppolPattern();
 }

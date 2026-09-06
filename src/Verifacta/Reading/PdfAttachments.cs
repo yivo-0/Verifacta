@@ -58,6 +58,7 @@ internal static class PdfAttachments
         try
         {
             var attachments = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+            var budget = new Budget(limits);
             using var document = PdfReader.Open(stream, PdfDocumentOpenMode.Import);
 
             var embedded = document.Internals.Catalog.Elements
@@ -66,10 +67,10 @@ internal static class PdfAttachments
 
             if (embedded is not null)
             {
-                CollectNameTree(embedded, attachments, limits);
+                CollectNameTree(embedded, attachments, limits, budget);
             }
 
-            CollectFileAnnotations(document, attachments, limits);
+            CollectFileAnnotations(document, attachments, limits, budget);
             return attachments;
         }
         catch (Exception exception) when (exception is not (UnsupportedDocumentException or OutOfMemoryException))
@@ -86,7 +87,7 @@ internal static class PdfAttachments
     /// overflow — which no caller can catch, because .NET does not let one.
     /// </summary>
     private static void CollectNameTree(
-        PdfDictionary root, Dictionary<string, byte[]> attachments, DocumentLimits limits)
+        PdfDictionary root, Dictionary<string, byte[]> attachments, DocumentLimits limits, Budget budget)
     {
         var pending = new Stack<PdfDictionary>();
         var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
@@ -117,7 +118,7 @@ internal static class PdfAttachments
 
                     if (name is null || specification is null) continue;
 
-                    Add(name.Value, specification, attachments, limits);
+                    Add(name.Value, specification, attachments, limits, budget);
                 }
             }
 
@@ -134,7 +135,7 @@ internal static class PdfAttachments
 
     /// <summary>Some producers attach the XML as a page annotation instead of a document-level file.</summary>
     private static void CollectFileAnnotations(
-        PdfDocument document, Dictionary<string, byte[]> attachments, DocumentLimits limits)
+        PdfDocument document, Dictionary<string, byte[]> attachments, DocumentLimits limits, Budget budget)
     {
         foreach (var page in document.Pages)
         {
@@ -149,13 +150,14 @@ internal static class PdfAttachments
                 if (annotation?.Elements.GetName("/Subtype") != "/FileAttachment") continue;
 
                 var specification = annotation.Elements.GetDictionary("/FS");
-                if (specification is not null) Add(null, specification, attachments, limits);
+                if (specification is not null) Add(null, specification, attachments, limits, budget);
             }
         }
     }
 
     private static void Add(
-        string? name, PdfDictionary specification, Dictionary<string, byte[]> attachments, DocumentLimits limits)
+        string? name, PdfDictionary specification, Dictionary<string, byte[]> attachments,
+        DocumentLimits limits, Budget budget)
     {
         var fileName = Clean(name)
             ?? Clean(specification.Elements.GetString("/UF"))
@@ -167,9 +169,31 @@ internal static class PdfAttachments
         var content = files?.Elements.GetDictionary("/F") ?? files?.Elements.GetDictionary("/UF");
         var bytes = Content(content, fileName, limits);
 
-        if (bytes is { Length: > 0 })
+        if (bytes is not { Length: > 0 }) return;
+
+        budget.Take(fileName, bytes.LongLength);
+        attachments[fileName] = bytes;
+    }
+
+    /// <summary>
+    /// What is left of the per-document extraction allowance. A cap on one attachment bounds
+    /// nothing on its own — a PDF may carry as many embedded files as it likes, each just under it.
+    /// </summary>
+    private sealed class Budget(DocumentLimits limits)
+    {
+        private long _taken;
+
+        internal void Take(string fileName, long bytes)
         {
-            attachments[fileName] = bytes;
+            _taken += bytes;
+
+            if (_taken > limits.MaxTotalAttachmentBytes)
+            {
+                throw new UnsupportedDocumentException(
+                    $"The document's attachments come to over {_taken:N0} bytes by '{fileName}', past the " +
+                    $"{limits.MaxTotalAttachmentBytes:N0} byte limit. Raise " +
+                    "DocumentLimits.MaxTotalAttachmentBytes if this is genuinely an invoice.");
+            }
         }
     }
 
