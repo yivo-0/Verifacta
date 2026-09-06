@@ -1,0 +1,13 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/yivo-0/Verifacta/security/advisories/new
+    about: Anything a hostile document could trigger. Please do not open a public issue.
+  - name: Commercial licence
+    url: mailto:oleganickij02@gmail.com
+    about: Licensing above the revenue threshold, or a question about which terms apply to you.
+  - name: A rule you disagree with
+    url: https://github.com/ConnectingEurope/eInvoicing-EN16931/issues
+    about: >-
+      Verifacta runs the publishers' artefacts unchanged. If a rule itself is wrong, it has to be
+      fixed by CEN, OpenPEPPOL or KoSIT.

@@ -1,0 +1,60 @@
+name: Wrong verdict
+description: Verifacta accepted an invoice it should reject, or rejected one it should accept
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the most valuable kind of report. Verifacta runs the publishers' own artefacts, so
+        a disagreement with the reference validator is a defect here rather than a difference of
+        opinion.
+
+        If the invoice contains real business data, redact it — the structure is what matters, and
+        a cut-down file that still reproduces the problem is better than a complete one.
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened
+      description: Which rule should have fired, or should not have. A rule id such as BR-CO-15 if you have one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What Verifacta reported
+      description: Output of `verifacta validate <file> --json`, or the findings your code saw.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: reference
+    attributes:
+      label: What another validator reported
+      description: >
+        If you have run this through KoSIT's validationtool, an access point, or any other
+        validator, what did it say? Not required, but it usually settles the question immediately.
+
+  - type: textarea
+    id: invoice
+    attributes:
+      label: The invoice
+      description: Attach it, or paste enough of it to reproduce the verdict.
+
+  - type: input
+    id: packs
+    attributes:
+      label: Rule packs
+      description: Output of `verifacta rules verify`.
+      placeholder: xrechnung 3.0.2, cen-en16931 1.3.16 …
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Verifacta version
+    validations:
+      required: true
