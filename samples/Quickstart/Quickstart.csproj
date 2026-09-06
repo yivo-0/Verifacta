@@ -14,7 +14,7 @@
       published package works, and a project reference would prove only that the source compiles.
       tools/verify-package.py packs, then builds and runs this against the resulting .nupkg.
     -->
-    <PackageReference Include="Verifacta" Version="$(VerifactaVersion)" />
+    <PackageReference Include="Klarfakt" Version="$(KlarfaktVersion)" />
   </ItemGroup>
 
   <ItemGroup>

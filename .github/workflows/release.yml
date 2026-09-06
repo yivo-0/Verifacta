@@ -33,7 +33,7 @@ jobs:
         run: dotnet build --configuration Release -p:Version=$VERSION -warnaserror
 
       - name: Restore the rule packs
-        run: dotnet run --project src/Verifacta.Cli --configuration Release --no-build -- rules restore
+        run: dotnet run --project src/Klarfakt.Cli --configuration Release --no-build -- rules restore
 
       - name: Fetch the official test corpora
         run: python tools/fetch-corpus.py

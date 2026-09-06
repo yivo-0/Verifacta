@@ -1,10 +1,10 @@
-Verifacta
+Klarfakt
 Copyright (c) 2026 Oleh Yanytskyi
 
 Licensed under the Business Source License 1.1 (see LICENSE).
 
 
-Third-party components distributed with Verifacta
+Third-party components distributed with Klarfakt
 -------------------------------------------------
 
 SaxonCS-HE 13.0.0 — Saxonica Limited, United Kingdom
@@ -16,7 +16,7 @@ PDFsharp 6.2.4 — empira Software GmbH, Germany
   MIT License
   https://github.com/empira/PDFsharp
 
-  PDFsharp brings these in transitively; Verifacta does not call them directly,
+  PDFsharp brings these in transitively; Klarfakt does not call them directly,
   and references them only to pin patched versions:
 
   AngleSharp 1.7.3 — AngleSharp project
@@ -28,12 +28,12 @@ PDFsharp 6.2.4 — empira Software GmbH, Germany
     https://github.com/dotnet/runtime
 
 
-Validation artefacts — NOT distributed with Verifacta
+Validation artefacts — NOT distributed with Klarfakt
 -----------------------------------------------------
 
-The Schematron and XML Schema artefacts Verifacta validates against are not
-included in this repository or in the Verifacta package. They are downloaded
-from their publishers on request, and src/Verifacta/RulePacks.json records the
+The Schematron and XML Schema artefacts Klarfakt validates against are not
+included in this repository or in the Klarfakt package. They are downloaded
+from their publishers on request, and src/Klarfakt/RulePacks.json records the
 release tag, licence and SHA-256 of every file. Each artefact remains subject
 to the licence of its publisher.
 
@@ -54,7 +54,7 @@ XRechnung visualisation — KoSIT
   https://github.com/itplr-kosit/xrechnung-visualization
   The rendered HTML embeds the stylesheet's own CSS and script, which includes
   FileSaver.js (c) Eli Grey, MIT License, as bundled by KoSIT. Pages produced by
-  Verifacta therefore carry that third-party code.
+  Klarfakt therefore carry that third-party code.
 
 UBL 2.1 schemas — OASIS
 CII D16B schemas — UN/CEFACT

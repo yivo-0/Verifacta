@@ -1,6 +1,6 @@
 """Builds the package and proves a stranger could use it.
 
-Packing is not the same as being usable. This packs Verifacta, then builds and runs
+Packing is not the same as being usable. This packs Klarfakt, then builds and runs
 samples/Quickstart against the resulting .nupkg from a clean directory with an empty package
 cache — so a missing dependency, a broken target framework or a file left out of the package shows
 up here rather than in someone else's build.
@@ -46,7 +46,7 @@ def main():
     packages = sorted(name for name in os.listdir(artifacts) if name.endswith(".nupkg"))
     print("  " + "\n  ".join(packages))
 
-    workspace = tempfile.mkdtemp(prefix="verifacta-package-")
+    workspace = tempfile.mkdtemp(prefix="klarfakt-package-")
     sample = os.path.join(workspace, "Quickstart")
     shutil.copytree(SAMPLE, sample)
 
@@ -67,14 +67,14 @@ def main():
 
     print(f"building the sample in {sample}")
     run(["dotnet", "build", "--configuration", "Release",
-         f"-p:VerifactaVersion={arguments.version}",
+         f"-p:KlarfaktVersion={arguments.version}",
          f"--packages", packages_directory], cwd=sample)
 
     print("restoring the rule packs and validating")
     rules = os.path.join(workspace, "rules")
     result = run(["dotnet", "run", "--configuration", "Release", "--no-build",
-                  f"-p:VerifactaVersion={arguments.version}"],
-                 cwd=sample, env={"VERIFACTA_RULES": rules}, check=False)
+                  f"-p:KlarfaktVersion={arguments.version}"],
+                 cwd=sample, env={"KLARFAKT_RULES": rules}, check=False)
 
     print("\n" + result.stdout.strip() + "\n")
 

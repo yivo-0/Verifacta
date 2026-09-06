@@ -6,10 +6,10 @@
 # so a build either got exactly the bytes the manifest names or it failed.
 #
 #   python tools/verify-package.py                       # produces artifacts/*.nupkg
-#   docker build -t verifacta-quickstart \
+#   docker build -t klarfakt-quickstart \
 #     --build-context feed=artifacts \
 #     -f samples/Quickstart/Dockerfile samples/Quickstart
-#   docker run --rm verifacta-quickstart
+#   docker run --rm klarfakt-quickstart
 #
 # The feed context is only needed while the package is unpublished. Once it is on nuget.org, point
 # it at any empty directory, or delete both /feed lines and the --source flag.
@@ -24,15 +24,15 @@ COPY --from=feed . /feed
 COPY . .
 
 RUN dotnet publish --configuration Release \
-        -p:VerifactaVersion=$VERSION \
+        -p:KlarfaktVersion=$VERSION \
         --source /feed --source https://api.nuget.org/v3/index.json \
         --output /app
 
-# The rule packs. VERIFACTA_RULES decides where they land; the runtime stage reads the same path.
+# The rule packs. KLARFAKT_RULES decides where they land; the runtime stage reads the same path.
 # "rules verify" is not redundant: restore checks what it downloads, verify checks what is on disk.
-RUN dotnet tool install --tool-path /tools Verifacta.Cli --version $VERSION --add-source /feed \
- && VERIFACTA_RULES=/rules /tools/verifacta rules restore \
- && VERIFACTA_RULES=/rules /tools/verifacta rules verify
+RUN dotnet tool install --tool-path /tools Klarfakt.Cli --version $VERSION --add-source /feed \
+ && KLARFAKT_RULES=/rules /tools/klarfakt rules restore \
+ && KLARFAKT_RULES=/rules /tools/klarfakt rules verify
 
 FROM mcr.microsoft.com/dotnet/runtime:8.0
 WORKDIR /app
@@ -40,9 +40,9 @@ WORKDIR /app
 COPY --from=build /app .
 COPY --from=build /rules /rules
 
-# Nothing in Verifacta touches the network once the artefacts are present, so this image validates
+# Nothing in Klarfakt touches the network once the artefacts are present, so this image validates
 # offline. It runs as a non-root user and needs no writable filesystem.
-ENV VERIFACTA_RULES=/rules
+ENV KLARFAKT_RULES=/rules
 USER $APP_UID
 
 ENTRYPOINT ["dotnet", "Quickstart.dll"]

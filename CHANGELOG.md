@@ -58,7 +58,7 @@ Node process and no network call outside `rules restore`.
 - `RulePackCatalog` restores artefacts from pinned upstream releases and verifies
   each against the manifest SHA-256 before first use.
 - `DocumentLimits` bounds input size, attachment size and PDF name-tree traversal.
-- `verifacta` command line: `rules restore` / `rules verify`, `validate`,
+- `klarfakt` command line: `rules restore` / `rules verify`, `validate`,
   `render`, `info`. Folder input, CSV and JSON output, `--strict`, `--parallel`,
   and Ctrl+C reporting what finished.
 - `ValidationResult.SchemaChecked` and `ProfileCovered`, so a verdict says what it

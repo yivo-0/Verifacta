@@ -62,9 +62,9 @@ invoice.
 
 ```
 Stack overflow.
-   at Verifacta.Reading.PdfAttachments.CollectNameTree(...)
-   at Verifacta.Reading.PdfAttachments.CollectNameTree(...)
-   at Verifacta.Reading.PdfAttachments.CollectNameTree(...)
+   at Klarfakt.Reading.PdfAttachments.CollectNameTree(...)
+   at Klarfakt.Reading.PdfAttachments.CollectNameTree(...)
+   at Klarfakt.Reading.PdfAttachments.CollectNameTree(...)
    ...
 ```
 
@@ -196,6 +196,6 @@ two compression bombs. All of them are in the test suite now. None of them would
 have appeared in any corpus of real invoices, which is exactly why 521 files of
 real corpus told me nothing about either bug.
 
-The library is [Verifacta](https://github.com/yivo-0/Verifacta), if you want to
+The library is [Klarfakt](https://github.com/yivo-0/Klarfakt), if you want to
 see the fixes in context. But the two mistakes are not specific to PDFs or to
 e-invoicing, which is why I wrote this instead of a release note.

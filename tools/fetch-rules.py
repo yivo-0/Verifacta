@@ -1,9 +1,9 @@
 """Maintainer tool: bumps the pinned rule packs and regenerates the committed manifest.
 
-Users do not need this script. They run `verifacta rules restore`, or call
+Users do not need this script. They run `klarfakt rules restore`, or call
 RulePackCatalog.Restore(), which downloads the same artefacts using the embedded manifest.
 
-Downloads the precompiled Schematron XSLT for each rule pack Verifacta validates against.
+Downloads the precompiled Schematron XSLT for each rule pack Klarfakt validates against.
 
 Every pack is pinned to an upstream release tag. The artefacts are NOT committed: the CEN
 rules are EUPL-1.2 and the KoSIT configurations are Apache-2.0, so they stay outside the
@@ -27,13 +27,13 @@ RULES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rules")
 # downloads from, so a clone with only the .NET SDK can fetch its own artefacts. The rules/
 # directory holds the artefacts themselves and stays out of git.
 MANIFEST = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "src", "Verifacta", "RulePacks.json")
+    os.path.dirname(os.path.abspath(__file__)), "..", "src", "Klarfakt", "RulePacks.json")
 
 KOSIT_CONFIG = "xrechnung-3.0.2-validator-configuration-2026-08-31.zip"
 
 
 def _schema_members():
-    """The XSDs for the two document types Verifacta reads, plus the modules they import."""
+    """The XSDs for the two document types Klarfakt reads, plus the modules they import."""
     groups = {
         "resources/ubl/2.1/xsd/maindoc/": (
             "UBL-Invoice-2.1.xsd", "UBL-CreditNote-2.1.xsd",

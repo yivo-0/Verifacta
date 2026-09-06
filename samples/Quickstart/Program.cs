@@ -1,5 +1,5 @@
-using Verifacta;
-using Verifacta.Validation;
+using Klarfakt;
+using Klarfakt.Validation;
 
 // 1. The rule artefacts are not shipped in the package — their publishers' licences are not ours
 //    to redistribute. Restore downloads them from the pinned upstream releases and checks every
