@@ -10,9 +10,22 @@ library itself is unchanged.
 
 ### Added
 
-- Two long-form articles under `docs/`.
+- Two long-form articles under `docs/`, and a `docs/` index.
+- `docs/pricing.md`: the commercial tiers, what a licence keeps, the rule pack
+  update commitment and the framework support policy.
 - `SECURITY.md`, `CONTRIBUTING.md`, a code of conduct, issue templates and a
   package icon.
+
+### Fixed
+
+- `RulePackCatalog.Covers` read only the profile kind, so a national CIUS such as
+  NLCIUS — declared by suffixing the EN 16931 identifier — reported as fully
+  covered while being judged against EN 16931 alone. Coverage now requires the
+  declared version to match the pack that ships.
+- `DocumentLimits.MaxTotalAttachmentBytes` bounds a whole document. A
+  per-attachment cap bounded nothing on its own.
+- Cancelling a batch reported the exit code of the files that finished. It now
+  exits 130 and states how many files were never checked.
 
 ## 1.0.0-preview.1
 

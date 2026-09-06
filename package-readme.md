@@ -62,11 +62,11 @@ deployments.
 ## Licence
 
 **Free unless your organisation turns over more than €1,000,000 a year.** Free at any size inside
-OSI-licensed open source. Free always for evaluation, development, CI and internal testing. Above
-that threshold and in production, a commercial licence is required — that is what pays for the rule
-packs being kept current.
+OSI-licensed open source. Free always for evaluation, development, CI and internal testing.
 
-On 2030-09-04 this version becomes Apache 2.0 automatically. Terms are Business Source License 1.1,
-which is not an OSI-approved licence.
+Above that threshold and in production, a commercial licence is **€690 a year** for unlimited
+developers, deployments and validations, covering every version released during the term
+permanently. Every version becomes Apache 2.0 four years after it ships — 1.x on 2030-09-04. Terms
+are Business Source License 1.1, which is not an OSI-approved licence.
 
 [Documentation, samples and source](https://github.com/yivo-0/Verifacta) · oleganickij02@gmail.com
